@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Base application theme -->
+    <style name="Theme.CathedralCafeInventoryLog" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/primaryColor</item>
+        <item name="colorPrimaryVariant">@color/primaryVariant</item>
+        <item name="colorSecondary">@color/secondaryColor</item>
+        <item name="android:colorBackground">@color/backgroundColor</item>
+        <item name="colorBackground">@color/backgroundColor</item>
+        <item name="colorSurface">@color/surfaceColor</item>
+        <item name="android:textColorPrimary">@color/onBackground</item>
+        <item name="colorOnPrimary">@color/onPrimary</item>
+        <item name="colorOnSurface">@color/onSurface</item>
+        <!-- You can also set default button styles -->
+        <item name="materialButtonStyle">@style/Widget.MaterialComponents.Button</item>
+    </style>
+
+    <style name="CustomTabLayoutStyle" parent="Widget.MaterialComponents.TabLayout">
+        <item name="tabIndicatorColor">@color/secondaryColor</item>
+        <item name="tabSelectedTextColor">@color/onBackground</item>
+        <item name="tabTextColor">@color/darker_gray</item>
+        <item name="android:background">@color/surfaceColor</item>
+    </style>
+</resources>

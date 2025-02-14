@@ -1,0 +1,26 @@
+<resources>
+    <!-- Primary colors -->
+    <color name="primaryColor">#1976D2</color>          <!-- A medium blue -->
+    <color name="primaryVariant">#115293</color>        <!-- A darker blue -->
+    <color name="secondaryColor">#FF9800</color>          <!-- A vivid orange -->
+    <color name="darker_gray">#666666</color>
+
+
+    <!-- Background and surface -->
+    <color name="backgroundColor">#FAFAFA</color>         <!-- Very light gray (almost white) -->
+    <color name="surfaceColor">#FFFFFF</color>            <!-- White -->
+
+    <!-- Text colors -->
+    <color name="onPrimary">#FFFFFF</color>               <!-- White text on primary color -->
+    <color name="onBackground">#212121</color>            <!-- Dark text on light background -->
+    <color name="onSurface">#212121</color>               <!-- Dark text on surface -->
+
+    <!-- Additional colors for UI accents -->
+    <color name="accentLight">#FFC107</color>             <!-- A bright amber for buttons -->
+    <color name="buttonTextColor">#FFFFFF</color>         <!-- White text on colored buttons -->
+
+    <!-- Colors for status indicators -->
+    <color name="expiredColor">#EF9A9A</color>            <!-- Light red for expired -->
+    <color name="expiringSoonColor">#FFCC80</color>       <!-- Light orange for expiring soon -->
+    <color name="freshColor">#C8E6C9</color>              <!-- Light green for fresh items -->
+</resources>
