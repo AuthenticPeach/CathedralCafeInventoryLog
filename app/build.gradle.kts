@@ -5,6 +5,14 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        create("release") {
+            storeFile = file("AP98-release-key.jks")
+            storePassword = "AP98Keystore!2025"   // Must match what you set
+            keyAlias = "AP98"
+            keyPassword = "AP98Key!2025"          // Must match the key password
+        }
+    }
     namespace = "com.invenkode.cathedralcafeinventorylog"
     compileSdk = 35
 
@@ -19,6 +27,7 @@ android {
 
     buildTypes {
         release {
+            signingConfig = signingConfigs["release"]
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
