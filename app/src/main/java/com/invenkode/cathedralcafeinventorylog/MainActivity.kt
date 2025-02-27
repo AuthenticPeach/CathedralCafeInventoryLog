@@ -20,6 +20,11 @@ import androidx.core.content.FileProvider
 
 class MainActivity : AppCompatActivity() {
 
+    // Public FAB properties so fragments can access them.
+    lateinit var fab: FloatingActionButton
+    lateinit var fabExportExpiration: FloatingActionButton
+    lateinit var fabExportInventory: FloatingActionButton
+
     private lateinit var viewPager: ViewPager2
     private lateinit var tabLayout: TabLayout
     private lateinit var inventoryDao: InventoryDao
@@ -30,6 +35,11 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize the database DAO.
         inventoryDao = InventoryDatabase.getDatabase(this).inventoryDao()
+
+        // Initialize FABs.
+        fab = findViewById(R.id.fab)
+        fabExportExpiration = findViewById(R.id.fabExportExpiration)
+        fabExportInventory = findViewById(R.id.fabExportInventory)
 
         viewPager = findViewById(R.id.viewPager)
         tabLayout = findViewById(R.id.tabLayout)
@@ -53,22 +63,16 @@ class MainActivity : AppCompatActivity() {
             }
         }.attach()
 
-        // Floating Action Button to add a new item.
-        val fabAdd = findViewById<FloatingActionButton>(R.id.fab)
-        fabAdd.setOnClickListener {
+        // Set up FAB click listeners.
+        fab.setOnClickListener {
             startActivity(Intent(this, AddItemActivity::class.java))
         }
 
-        // Export Expiration Report button.
-        val fabExportExpiration = findViewById<FloatingActionButton>(R.id.fabExportExpiration)
         fabExportExpiration.setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
-                // Get all items (you can filter if needed)
                 val items = inventoryDao.getAllItemsSync()
-                // Generate the PDF report for expiration.
                 val file = exportReportToPdf(this@MainActivity, items, "Expiration")
                 file?.let {
-                    // Get a URI via FileProvider (ensure your FileProvider is set up in the manifest)
                     val fileUri: Uri = FileProvider.getUriForFile(
                         this@MainActivity,
                         "${applicationContext.packageName}.fileprovider",
@@ -86,12 +90,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Export Inventory Report button.
-        val fabExportInventory = findViewById<FloatingActionButton>(R.id.fabExportInventory)
         fabExportInventory.setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
                 val items = inventoryDao.getAllItemsSync()
-                // Generate the PDF report for inventory quantities.
                 val file = exportReportToPdf(this@MainActivity, items, "Inventory")
                 file?.let {
                     val fileUri: Uri = FileProvider.getUriForFile(
@@ -112,12 +113,43 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Schedule WorkManager to check expiration dates daily.
-        val workRequest = PeriodicWorkRequestBuilder<ExpirationWorker>(24, TimeUnit.HOURS)
-            .build()
+        val workRequest = PeriodicWorkRequestBuilder<ExpirationWorker>(24, TimeUnit.HOURS).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "expirationWorker",
             ExistingPeriodicWorkPolicy.KEEP,
             workRequest
         )
+
+        // Update badges on the tabs.
+        updateTabBadges()
+    }
+    
+    private fun updateTabBadges() {
+        // For example, suppose we query the database (or filter a list) to count red-zone items.
+        lifecycleScope.launch(Dispatchers.IO) {
+            val items = inventoryDao.getAllItemsSync()
+            val now = System.currentTimeMillis()
+            // Red zone for Expirations: expired or expiring within one week.
+            val expirationCount = items.count {
+                it.expirationDate <= now || (it.expirationDate - now) < 7 * 86_400_000L
+            }
+            // Red zone for Inventory: quantity 3 or less.
+            val inventoryCount = items.count { it.quantity <= 3 }
+
+            runOnUiThread {
+                // Update badge for Expirations tab (position 0).
+                tabLayout.getTabAt(0)?.apply {
+                    val badge = orCreateBadge
+                    badge.number = expirationCount
+                    badge.isVisible = expirationCount > 0
+                }
+                // Update badge for Inventory tab (position 1).
+                tabLayout.getTabAt(1)?.apply {
+                    val badge = orCreateBadge
+                    badge.number = inventoryCount
+                    badge.isVisible = inventoryCount > 0
+                }
+            }
+        }
     }
 }

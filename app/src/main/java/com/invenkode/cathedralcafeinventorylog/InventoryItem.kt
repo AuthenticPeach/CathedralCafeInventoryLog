@@ -10,9 +10,8 @@ data class InventoryItem(
     val name: String,
     // Store expiration date as milliseconds since epoch
     val expirationDate: Long,
-    // New field for inventory count
-    val quantity: Int = 1,
-    // Flags to track notifications
-    val notifiedApproaching: Boolean = false,
+    val quantity: Int = 6,  // default quantity is 6
+    val storageType: String = "Fridge",  // default storage type is Fridge
+    val notifiedApproaching: Boolean = false,    // Flags to track notifications
     val notifiedExpired: Boolean = false
 )

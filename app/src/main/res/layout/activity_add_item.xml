@@ -8,19 +8,24 @@
 
     <EditText
         android:id="@+id/editTextName"
-        android:hint="Item Name"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:hint="Item Name"/>
 
     <DatePicker
         android:id="@+id/datePicker"
-        android:calendarViewShown="true"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+
+    <!-- Ensure the Spinner's ID matches the code -->
+    <Spinner
+        android:id="@+id/spinnerStorageType"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"/>
 
     <Button
         android:id="@+id/btnAdd"
-        android:text="Add Item"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:text="Add Item"/>
 </LinearLayout>

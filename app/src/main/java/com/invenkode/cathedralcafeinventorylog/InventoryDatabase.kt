@@ -20,7 +20,7 @@ abstract class InventoryDatabase : RoomDatabase() {
                     InventoryDatabase::class.java,
                     "inventory_database"
                 )
-                    .fallbackToDestructiveMigration() // Optional: clears data on schema change
+                    .fallbackToDestructiveMigration() // clears data on schema change
                     .build()
                 INSTANCE = instance
                 instance

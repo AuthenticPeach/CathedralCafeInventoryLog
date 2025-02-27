@@ -1,8 +1,10 @@
 package com.invenkode.cathedralcafeinventorylog
+
 import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.NumberPicker
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -10,21 +12,26 @@ import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class InventoryAdapter : ListAdapter<InventoryItem, InventoryAdapter.InventoryViewHolder>(DIFF_CALLBACK) {
+class InventoryAdapter(
+    // Pass true for the Inventory (editable) tab, false for the Expiration (read-only) tab.
+    private val isEditable: Boolean,
+    // Callback for quantity changes (only used when isEditable is true).
+    private val onQuantityChanged: ((InventoryItem, Int) -> Unit)? = null
+) : ListAdapter<InventoryItem, InventoryAdapter.InventoryViewHolder>(DIFF_CALLBACK) {
 
     companion object {
         private val DIFF_CALLBACK = object : DiffUtil.ItemCallback<InventoryItem>() {
-            override fun areItemsTheSame(oldItem: InventoryItem, newItem: InventoryItem) = oldItem.id == newItem.id
-            override fun areContentsTheSame(oldItem: InventoryItem, newItem: InventoryItem) = oldItem == newItem
-        }
+            override fun areItemsTheSame(oldItem: InventoryItem, newItem: InventoryItem): Boolean =
+                oldItem.id == newItem.id
 
-        private const val ONE_DAY_MS = 86_400_000L
-        private const val ONE_WEEK_MS = 7 * ONE_DAY_MS
-        private const val TWO_WEEKS_MS = 14 * ONE_DAY_MS
+            override fun areContentsTheSame(oldItem: InventoryItem, newItem: InventoryItem): Boolean =
+                oldItem == newItem
+        }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): InventoryViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.list_item, parent, false)
+        val layoutId = if (isEditable) R.layout.list_item_inventory else R.layout.list_item
+        val view = LayoutInflater.from(parent.context).inflate(layoutId, parent, false)
         return InventoryViewHolder(view)
     }
 
@@ -34,54 +41,62 @@ class InventoryAdapter : ListAdapter<InventoryItem, InventoryAdapter.InventoryVi
     }
 
     inner class InventoryViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        // Common view for the item name; in both layouts, use the same ID ("tvName").
         private val tvName: TextView = itemView.findViewById(R.id.tvName)
-        private val tvExpiration: TextView = itemView.findViewById(R.id.tvExpiration)
-        // Status TextView for additional info:
-        private val tvStatus: TextView = itemView.findViewById(R.id.tvStatus)
+        // New: Optional view for storage type.
+        private val tvStorageType: TextView? = itemView.findViewById(R.id.tvStorageType)
+        // For read-only layout.
+        private val tvExpiration: TextView? = if (!isEditable) itemView.findViewById(R.id.tvExpiration) else null
+        private val tvStatus: TextView? = if (!isEditable) itemView.findViewById(R.id.tvStatus) else null
+        // For editable layout.
+        private val numberPicker: NumberPicker? = if (isEditable) itemView.findViewById(R.id.numberPickerQuantity) else null
+
         private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
         fun bind(item: InventoryItem) {
             tvName.text = item.name
-            tvExpiration.text = dateFormat.format(item.expirationDate)
+            // Display storage type in both modes.
+            tvStorageType?.text = "Storage: ${item.storageType}"
 
-            val now = System.currentTimeMillis()
-            val diff = item.expirationDate - now
+            if (isEditable && numberPicker != null) {
+                // Editable mode: use NumberPicker for quantity.
+                numberPicker.minValue = 0
+                numberPicker.maxValue = 100  // Adjust max value as needed.
+                numberPicker.value = item.quantity
 
-            // Default values for fresh items
-            var bgColor = Color.WHITE
-            var statusMessage: String? = null
-
-            when {
-                now >= item.expirationDate -> { // Expired
-                    bgColor = Color.parseColor("#FFCDD2")  // Light red background
-                    statusMessage = "expired!"
+                // Change background color based on quantity.
+                val bgColor = if (item.quantity <= 3) {
+                    Color.parseColor("#FFCDD2") // Light red for low stock.
+                } else {
+                    Color.WHITE
                 }
-                diff < ONE_WEEK_MS -> { // Within one week
-                    bgColor = Color.parseColor("#FFE0B2")  // Light orange background
-                    statusMessage = "expiring soon!"
-                }
-                diff < TWO_WEEKS_MS -> { // Within two weeks
-                    bgColor = Color.parseColor("#FFF9C4")  // Light yellow background
-                    statusMessage = "expiring soon!"
-                }
-                else -> { // Fresh item
-                    bgColor = Color.WHITE
-                    statusMessage = null  // No status text for fresh items
-                }
-            }
+                itemView.setBackgroundColor(bgColor)
 
-            // Set the background color of the entire item view
-            itemView.setBackgroundColor(bgColor)
-
-            // Update the status TextView
-            if (statusMessage != null) {
-                tvStatus.text = statusMessage
-                tvStatus.visibility = View.VISIBLE
+                numberPicker.setOnValueChangedListener { _, oldVal, newVal ->
+                    if (oldVal != newVal) {
+                        onQuantityChanged?.invoke(item, newVal)
+                    }
+                }
             } else {
-                tvStatus.visibility = View.GONE
+                // Read-only mode: display expiration date and status.
+                tvExpiration?.text = dateFormat.format(item.expirationDate)
+                val now = System.currentTimeMillis()
+                val diff = item.expirationDate - now
+                val statusMessage = when {
+                    now >= item.expirationDate -> "expired!"
+                    diff < 7 * 86_400_000L -> "expiring soon!"
+                    diff < 14 * 86_400_000L -> "expiring soon!"
+                    else -> ""
+                }
+                if (statusMessage.isNotEmpty()) {
+                    tvStatus?.text = statusMessage
+                    tvStatus?.visibility = View.VISIBLE
+                } else {
+                    tvStatus?.visibility = View.GONE
+                }
+                // Use a white background in read-only mode.
+                itemView.setBackgroundColor(Color.WHITE)
             }
         }
     }
 }
-
-

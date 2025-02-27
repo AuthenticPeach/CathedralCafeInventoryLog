@@ -23,4 +23,6 @@
     <color name="expiredColor">#EF9A9A</color>            <!-- Light red for expired -->
     <color name="expiringSoonColor">#FFCC80</color>       <!-- Light orange for expiring soon -->
     <color name="freshColor">#C8E6C9</color>              <!-- Light green for fresh items -->
+
+
 </resources>

@@ -1,3 +1,7 @@
 <resources>
-    <string name="app_name">CathedralCafeInventoryLog</string>
+    <string name="app_name">Cathedral Cafe Log</string>
+    <string-array name="storage_types">
+        <item>Fridge</item>
+        <item>Display</item>
+    </string-array>
 </resources>
