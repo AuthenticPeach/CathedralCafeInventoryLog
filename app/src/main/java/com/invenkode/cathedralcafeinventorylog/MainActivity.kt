@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     lateinit var fab: FloatingActionButton
     lateinit var fabExportExpiration: FloatingActionButton
     lateinit var fabExportInventory: FloatingActionButton
+    lateinit var fabExportCsv: FloatingActionButton
 
     private lateinit var viewPager: ViewPager2
     private lateinit var tabLayout: TabLayout
@@ -40,6 +41,7 @@ class MainActivity : AppCompatActivity() {
         fab = findViewById(R.id.fab)
         fabExportExpiration = findViewById(R.id.fabExportExpiration)
         fabExportInventory = findViewById(R.id.fabExportInventory)
+        fabExportCsv = findViewById(R.id.fabExportCsv)
 
         viewPager = findViewById(R.id.viewPager)
         tabLayout = findViewById(R.id.tabLayout)
@@ -59,15 +61,34 @@ class MainActivity : AppCompatActivity() {
             tab.text = when (position) {
                 0 -> "Expirations"
                 1 -> "Inventory"
+                2 -> "General Stock"
                 else -> ""
             }
         }.attach()
 
-        // Set up FAB click listeners.
-        fab.setOnClickListener {
-            startActivity(Intent(this, AddItemActivity::class.java))
-        }
+        // Update the FAB behavior based on the current page.
+        viewPager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                when (position) {
+                    0, 1 -> {
+                        // For Expirations and Inventory, use the default add behavior.
+                        fab.setOnClickListener {
+                            startActivity(Intent(this@MainActivity, AddItemActivity::class.java))
+                        }
+                    }
+                    2 -> {
+                        // For General Stock, pass an extra indicating the default category is "general".
+                        fab.setOnClickListener {
+                            val intent = Intent(this@MainActivity, AddItemActivity::class.java)
+                            intent.putExtra("defaultCategory", "general")
+                            startActivity(intent)
+                        }
+                    }
+                }
+            }
+        })
 
+        // Set up export FAB click listeners.
         fabExportExpiration.setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
                 val items = inventoryDao.getAllItemsSync()
@@ -75,7 +96,7 @@ class MainActivity : AppCompatActivity() {
                 file?.let {
                     val fileUri: Uri = FileProvider.getUriForFile(
                         this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",
+                        "${applicationContext.packageName}.fileprovider",  // consistent authority
                         it
                     )
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -97,7 +118,7 @@ class MainActivity : AppCompatActivity() {
                 file?.let {
                     val fileUri: Uri = FileProvider.getUriForFile(
                         this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",
+                        "${applicationContext.packageName}.fileprovider",  // consistent authority
                         it
                     )
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -112,6 +133,29 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        fabExportCsv.setOnClickListener {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val items = inventoryDao.getAllItemsSync()
+                // Change "Expiration" to "Inventory" if needed.
+                val file = exportReportToCsv(this@MainActivity, items, "Expiration")
+                file?.let {
+                    val fileUri: Uri = FileProvider.getUriForFile(
+                        this@MainActivity,
+                        "${applicationContext.packageName}.fileprovider",  // consistent authority
+                        it
+                    )
+                    runOnUiThread {
+                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/csv"
+                            putExtra(Intent.EXTRA_STREAM, fileUri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        startActivity(Intent.createChooser(shareIntent, "Share CSV Report"))
+                    }
+                }
+            }
+        }
+
         // Schedule WorkManager to check expiration dates daily.
         val workRequest = PeriodicWorkRequestBuilder<ExpirationWorker>(24, TimeUnit.HOURS).build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
@@ -120,35 +164,44 @@ class MainActivity : AppCompatActivity() {
             workRequest
         )
 
-        // Update badges on the tabs.
-        updateTabBadges()
+        // Start observing data to update tab badges dynamically.
+        observeDataAndUpdateTabs()
     }
-    
-    private fun updateTabBadges() {
-        // For example, suppose we query the database (or filter a list) to count red-zone items.
-        lifecycleScope.launch(Dispatchers.IO) {
-            val items = inventoryDao.getAllItemsSync()
+
+    private fun observeDataAndUpdateTabs() {
+        inventoryDao.getAll().observe(this) { items ->
             val now = System.currentTimeMillis()
-            // Red zone for Expirations: expired or expiring within one week.
-            val expirationCount = items.count {
-                it.expirationDate <= now || (it.expirationDate - now) < 7 * 86_400_000L
-            }
-            // Red zone for Inventory: quantity 3 or less.
-            val inventoryCount = items.count { it.quantity <= 3 }
+            // For Expirations: count items that are expiring soon or expired, excluding Stock items.
+            val expiringSoonCount = items.filter {
+                !it.storageType.equals("Stock", ignoreCase = true)
+            }.count { it.expirationDate <= now || (it.expirationDate - now) < 7 * 86_400_000L }
+
+            // For Inventory: count only non-stock items with quantity <=2.
+            val lowStockCount = items.filter {
+                !it.storageType.equals("Stock", ignoreCase = true)
+            }.count { it.quantity <= 2 }
+
+            // For General Stock: count items where storageType equals "Stock" and quantity <=2.
+            val generalStockLowCount = items.filter {
+                it.storageType.equals("Stock", ignoreCase = true)
+            }.count { it.quantity <= 2 }
 
             runOnUiThread {
-                // Update badge for Expirations tab (position 0).
-                tabLayout.getTabAt(0)?.apply {
-                    val badge = orCreateBadge
-                    badge.number = expirationCount
-                    badge.isVisible = expirationCount > 0
-                }
-                // Update badge for Inventory tab (position 1).
-                tabLayout.getTabAt(1)?.apply {
-                    val badge = orCreateBadge
-                    badge.number = inventoryCount
-                    badge.isVisible = inventoryCount > 0
-                }
+                updateTabBadge(0, expiringSoonCount)
+                updateTabBadge(1, lowStockCount)
+                updateTabBadge(2, generalStockLowCount)
+            }
+        }
+    }
+
+    private fun updateTabBadge(tabIndex: Int, count: Int) {
+        val tab = tabLayout.getTabAt(tabIndex)
+        tab?.orCreateBadge?.apply {
+            if (count > 0) {
+                number = count
+                isVisible = true
+            } else {
+                isVisible = false
             }
         }
     }

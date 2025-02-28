@@ -6,6 +6,7 @@
     android:layout_height="match_parent"
     android:background="?attr/colorBackground">
 
+    <!-- AppBar with TabLayout -->
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -16,42 +17,57 @@
             style="@style/CustomTabLayoutStyle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"/>
-
     </com.google.android.material.appbar.AppBarLayout>
 
+    <!-- ViewPager for fragments -->
     <androidx.viewpager2.widget.ViewPager2
         android:id="@+id/viewPager"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"/>
 
-    <!-- Primary FAB for Adding new items -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fab"
+    <!-- Vertical container for all FABs -->
+    <LinearLayout
+        android:id="@+id/fab_container"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:orientation="vertical"
         android:layout_gravity="bottom|end"
-        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior"
-        android:layout_margin="16dp"
-        app:srcCompat="@drawable/ic_add"/>
+        android:layout_margin="16dp">
 
-    <!-- Export buttons -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabExportExpiration"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
-        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior"
-        android:layout_margin="16dp"
-        app:srcCompat="@drawable/ic_save"/>
+        <!-- FAB for adding a new item -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fab"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:srcCompat="@drawable/ic_add"
+            android:contentDescription="@string/add_item"/>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabExportInventory"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|center_horizontal"
-        app:layout_behavior="com.google.android.material.behavior.HideBottomViewOnScrollBehavior"
-        android:layout_margin="16dp"
-        app:srcCompat="@drawable/ic_share"/>
+        <!-- FAB for exporting expiration report -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabExportExpiration"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:srcCompat="@drawable/ic_save"
+            android:contentDescription="@string/export_expiration"/>
 
+        <!-- FAB for exporting inventory report -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabExportInventory"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:srcCompat="@drawable/ic_share"
+            android:contentDescription="@string/export_inventory"/>
+
+        <!-- FAB for exporting CSV report -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabExportCsv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:srcCompat="@drawable/exportcsv"
+            android:contentDescription="@string/export_csv"/>
+    </LinearLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

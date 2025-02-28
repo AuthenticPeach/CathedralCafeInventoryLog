@@ -1,6 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.invenkode.cathedralcafeinventorylog"
+    android:versionCode="1"
+    android:versionName="1.0">
+
+    <!-- Declare minimum and target SDKs -->
+    <uses-sdk
+        android:minSdkVersion="26"
+        android:targetSdkVersion="35" />
 
     <application
         android:allowBackup="true"
@@ -8,7 +17,8 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/cathedralcafe_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CathedralCafeInventoryLog">
+        android:theme="@style/Theme.CathedralCafeInventoryLog"
+        tools:targetApi="35">
 
         <activity
             android:name=".MainActivity"
@@ -18,10 +28,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
+        <activity
+            android:name=".EditItemActivity"
+            android:exported="true" />
         <activity
             android:name=".AddItemActivity"
-            android:exported="true"/>
+            android:exported="true" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -31,9 +44,6 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
-
     </application>
-
-
 
 </manifest>
