@@ -10,6 +10,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.util.Locale
 
 class InventoryFragment : Fragment() {
 
@@ -17,7 +18,9 @@ class InventoryFragment : Fragment() {
     private lateinit var adapter: InventoryCountAdapter
     private lateinit var recyclerView: RecyclerView
 
-    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
+    override fun onCreateView(
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
+    ): View? {
         return inflater.inflate(R.layout.fragment_inventory, container, false)
     }
 
@@ -33,9 +36,11 @@ class InventoryFragment : Fragment() {
 
         inventoryDao = InventoryDatabase.getDatabase(requireContext()).inventoryDao()
         inventoryDao.getAll().observe(viewLifecycleOwner) { items ->
-            // Filter out "Stock" items.
+            // Filter out items stored as "Stock".
             val filteredItems = items.filter { !it.storageType.equals("Stock", ignoreCase = true) }
-            adapter.submitList(filteredItems)
+            // Sort items alphabetically by name (ignoring case).
+            val sortedItems = filteredItems.sortedBy { it.name.toLowerCase(Locale.getDefault()) }
+            adapter.submitList(sortedItems)
         }
     }
 }

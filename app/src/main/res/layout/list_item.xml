@@ -2,73 +2,38 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/cardViewItem"
     android:layout_width="match_parent"
+    android:layout_margin="4dp"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="4dp"
-    android:clickable="true"
-    android:longClickable="true"
-    android:descendantFocusability="blocksDescendants">
+    app:cardCornerRadius="4dp"
+    app:cardElevation="2dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="8dp">
 
-        <!-- Item Name -->
         <TextView
             android:id="@+id/tvName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="16sp"
-            android:textColor="@android:color/black"
-            android:focusable="false" />
+            android:textColor="@android:color/black"/>
 
-        <!-- Optional: Variant displayed separately -->
         <TextView
             android:id="@+id/tvVariant"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
             android:textColor="@android:color/darker_gray"
-            android:visibility="gone"
-            android:layout_marginTop="4dp"
-            android:focusable="false" />
+            android:visibility="gone"/>
 
-        <!-- Expiration Date -->
         <TextView
             android:id="@+id/tvExpiration"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="@android:color/black"
-            android:visibility="gone"
-            android:layout_marginTop="4dp"
-            android:focusable="false" />
-
-        <!-- Status Text -->
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textColor="@android:color/holo_red_dark"
-            android:visibility="gone"
-            android:layout_marginTop="4dp"
-            android:focusable="false" />
-
-        <!-- Storage Type -->
-        <TextView
-            android:id="@+id/tvStorage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            android:layout_marginTop="4dp"
-            android:focusable="false" />
-
+            android:textColor="@android:color/black"/>
     </LinearLayout>
 </androidx.cardview.widget.CardView>

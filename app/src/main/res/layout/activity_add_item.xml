@@ -29,7 +29,7 @@
             android:inputType="text" />
 
         <Spinner
-            android:id="@+id/spinnerItemType"
+            android:id="@+id/spinnerStorageType"
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 

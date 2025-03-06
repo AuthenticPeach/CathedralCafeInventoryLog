@@ -7,8 +7,10 @@
     <string name="export_csv">Export as CSV</string>
     <string name="export_inventory">Export Inventory as PDF</string>
     <string name="export_expiration">Export Expiration Dates as PDF</string>
+    <string name="final_qty">0</string>
     <string-array name="storage_types">
         <item>Fridge</item>
         <item>Display</item>
+        <item>Stock</item>
     </string-array>
 </resources>

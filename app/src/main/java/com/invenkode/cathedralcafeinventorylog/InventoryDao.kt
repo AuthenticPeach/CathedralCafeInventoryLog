@@ -22,7 +22,10 @@ interface InventoryDao {
     @Update
     suspend fun update(item: InventoryItem)
 
-    // Add a delete function:
     @Delete
     suspend fun delete(item: InventoryItem)
+    // Method to query for items whose name starts with the provided base.
+    @Query("SELECT * FROM inventory WHERE name LIKE :namePrefix || '%'")
+    suspend fun getItemsByName(namePrefix: String): List<InventoryItem>
+
 }

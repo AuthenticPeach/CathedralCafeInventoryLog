@@ -141,7 +141,7 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
 
     // Define column positions.
     val leftColumnX = margin.toFloat()
-    val rightColumnX = margin.toFloat() + 300f
+    val rightColumnX = margin.toFloat() + 400f
 
     // Load the icon bitmap.
     val iconBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.cathedralcafeicon)
