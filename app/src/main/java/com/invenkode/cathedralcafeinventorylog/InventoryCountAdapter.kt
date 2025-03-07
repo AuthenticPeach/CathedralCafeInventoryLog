@@ -33,7 +33,7 @@ class InventoryCountAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): InventoryCountViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.list_item_inventory, parent, false)
-        // Optionally adjust vertical scale if needed (e.g., view.scaleY = 0.8f)
+        // Optionally adjust vertical scale if you wish; for now we leave it as defined in XML.
         return InventoryCountViewHolder(view)
     }
 
@@ -44,19 +44,19 @@ class InventoryCountAdapter(
     inner class InventoryCountViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView),
         View.OnTouchListener {
 
-        // Changed tvNameInventory to tvName since your layout uses "tvName"
+        // Find views by their IDs from list_item_inventory.xml.
         private val tvName: TextView = itemView.findViewById(R.id.tvName)
+        private val tvVariant: TextView = itemView.findViewById(R.id.tvVariant)
         private val numberPicker: NumberPicker = itemView.findViewById(R.id.numberPickerQuantity)
         private val tvFinalQuantity: TextView = itemView.findViewById(R.id.tvFinalQuantity)
 
-        // Use a ScaleGestureDetector to allow pinch-to-zoom (vertical scaling only)
+        // Create a ScaleGestureDetector to support vertical scaling.
         private val scaleDetector = ScaleGestureDetector(itemView.context,
             object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
                 override fun onScale(detector: ScaleGestureDetector): Boolean {
                     val scaleFactor = detector.scaleFactor
-                    // Update only vertical scale.
                     val newScaleY = itemView.scaleY * scaleFactor
-                    // Limit vertical scale between 0.5 (50% height) and 1.0 (original height).
+                    // Limit vertical scale between 0.5 (50%) and 1.0 (original).
                     itemView.scaleY = newScaleY.coerceIn(0.5f, 1.0f)
                     return true
                 }
@@ -70,15 +70,23 @@ class InventoryCountAdapter(
         fun bind(item: InventoryItem) {
             tvName.text = item.name
 
+            // Show variant if available.
+            if (item.variant.isNotBlank()) {
+                tvVariant.text = item.variant
+                tvVariant.visibility = View.VISIBLE
+            } else {
+                tvVariant.visibility = View.GONE
+            }
+
             // Configure NumberPicker.
             numberPicker.minValue = 0
             numberPicker.maxValue = 100  // Adjust as needed.
             numberPicker.value = item.quantity
 
-            // Display final quantity.
+            // Display the final quantity in a larger font.
             tvFinalQuantity.text = String.format(Locale.getDefault(), "%d", item.quantity)
 
-            // Listen for NumberPicker changes.
+            // Listen for changes in the NumberPicker.
             numberPicker.setOnValueChangedListener { _, oldVal, newVal ->
                 if (oldVal != newVal) {
                     onQuantityChanged(item, newVal)
@@ -87,11 +95,11 @@ class InventoryCountAdapter(
             }
 
             // Set background color based on quantity:
-            // Quantity <=2: red; exactly 3: yellow; above 3: green.
+            // Quantity <= 2: light red; exactly 3: light yellow; above 3: light green.
             val bgColor = when {
-                item.quantity <= 2 -> Color.parseColor("#FFCDD2")  // Light red.
-                item.quantity == 3 -> Color.parseColor("#FFF9C4")  // Light yellow.
-                else -> Color.parseColor("#C8E6C9")                // Light green.
+                item.quantity <= 2 -> Color.parseColor("#FFCDD2")
+                item.quantity == 3 -> Color.parseColor("#FFF9C4")
+                else -> Color.parseColor("#C8E6C9")
             }
             itemView.setBackgroundColor(bgColor)
             Log.d("InventoryCountAdapter", "Bound item: ${item.name}, qty: ${item.quantity}")
@@ -121,10 +129,9 @@ class InventoryCountAdapter(
             event?.let {
                 scaleDetector.onTouchEvent(it)
                 if (it.action == MotionEvent.ACTION_UP) {
-                    v?.performClick() // Satisfy click requirements.
+                    v?.performClick()
                 }
             }
-            // Return false so other touch events (e.g., in NumberPicker) continue working.
             return false
         }
     }

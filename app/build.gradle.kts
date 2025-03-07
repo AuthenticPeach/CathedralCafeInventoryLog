@@ -1,18 +1,12 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    id("com.google.devtools.ksp")
+    id("com.google.devtools.ksp") // Do not specify a version here
+    alias(libs.plugins.compose)
 }
 
+
 android {
-    signingConfigs {
-        create("release") {
-            storeFile = file("AP98-release-key.jks")
-            storePassword = "AP98Keystore!2025"   // Must match what you set
-            keyAlias = "AP98"
-            keyPassword = "AP98Key!2025"          // Must match the key password
-        }
-    }
     namespace = "com.invenkode.cathedralcafeinventorylog"
     compileSdk = 35
 
@@ -27,7 +21,6 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs["release"]
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -35,69 +28,69 @@ android {
             )
         }
     }
+
+    buildFeatures {
+        compose = true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.4.8"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
+        languageVersion = "1.8"
+        apiVersion = "1.8"
     }
-    buildFeatures {
-        compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.4.8"
+
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
     }
 }
 
 dependencies {
-    // Room runtime (version managed via your version catalog)
+    // Compose BOM ensures consistent versions.
+    implementation(platform("androidx.compose:compose-bom:2023.05.01"))
+    implementation("androidx.compose.ui:ui")
+    implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.ui:ui-tooling-preview")
+    debugImplementation("androidx.compose.ui:ui-tooling")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Firebase dependencies.
+    implementation(platform("com.google.firebase:firebase-bom:32.2.0"))
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-analytics")
+
+    // Room dependencies.
     implementation(libs.androidx.room.runtime.v251)
     implementation(libs.androidx.room.ktx)
-    // KSP processor for Room
     ksp("androidx.room:room-compiler:2.5.1")
-    // Add Room KTX for coroutine support
     implementation("androidx.room:room-ktx:2.6.1")
-    // Kotlin Coroutines
+
+    // Kotlin Coroutines.
     implementation(libs.kotlinx.coroutines.android)
 
-    // WorkManager for background tasks
+    // WorkManager.
     implementation(libs.androidx.work.runtime.ktx)
 
-    // JavaMail dependencies
-    implementation(libs.android.mail)
-    implementation(libs.mail.android.activation)
-
-    // RecyclerView and core UI libraries
+    // Other UI and support libraries.
     implementation(libs.androidx.recyclerview)
     implementation("androidx.core:core-ktx:1.9.0")
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-
-    // Testing dependencies
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
-    androidTestImplementation(libs.androidx.ui.test.junit4)
-
-    // Debug dependencies
-    debugImplementation(libs.androidx.ui.tooling)
-    debugImplementation(libs.androidx.ui.test.manifest)
-
-    // Additional UI and support libraries
     implementation(libs.androidx.coordinatorlayout)
-    implementation(libs.androidx.room.runtime)
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation(libs.material)
 }
 
-// Force jvmTarget = "11" for all Kotlin compile tasks (including KSP tasks)
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
     kotlinOptions.jvmTarget = "11"
 }
+
+apply(plugin = "com.google.gms.google-services")

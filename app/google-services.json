@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "25238647634",
+    "project_id": "cathedralcafelog",
+    "storage_bucket": "cathedralcafelog.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:25238647634:android:f0427b992e928283c8408b",
+        "android_client_info": {
+          "package_name": "com.invenkode.cathedralcafeinventorylog"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB0lesY1CYl2MzNcOO_PlEZ_P4uFgNzAys"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,14 +3,20 @@ plugins {
     alias(libs.plugins.android.application) apply false
     alias(libs.plugins.kotlin.android) apply false
  //   alias(libs.plugins.kotlin.compose) apply false
+    id("com.google.gms.google-services") version "4.4.2" apply false
+    alias(libs.plugins.compose) apply false
 }
 
 buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
     dependencies {
-        // Use the correct KSP version
-        classpath("com.google.devtools.ksp:com.google.devtools.ksp.gradle.plugin:1.8.22-1.0.11")
+        classpath("com.google.gms:google-services:4.4.2")  // Check for the latest version
     }
 }
+
 
 allprojects {
 

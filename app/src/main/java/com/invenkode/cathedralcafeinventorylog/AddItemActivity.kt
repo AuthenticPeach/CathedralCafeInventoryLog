@@ -8,26 +8,32 @@ import android.widget.DatePicker
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Spinner
+import android.widget.Toast
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 class AddItemActivity : AppCompatActivity() {
 
     private lateinit var inventoryDao: InventoryDao
+    private lateinit var firestore: FirebaseFirestore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_item)
 
-        // Initialize DAO.
+        // Initialize local Room DAO.
         val db = InventoryDatabase.getDatabase(this)
         inventoryDao = db.inventoryDao()
 
-        // Views from the layout.
+        // Initialize Firestore.
+        firestore = FirebaseFirestore.getInstance()
+
+        // Get views from the layout.
         val spinnerStorage = findViewById<Spinner>(R.id.spinnerStorageType)
         val editTextName = findViewById<EditText>(R.id.editTextName)
         val editTextVariant = findViewById<EditText>(R.id.editTextVariant)
@@ -38,7 +44,7 @@ class AddItemActivity : AppCompatActivity() {
         // Set up spinner with storage types from resources.
         ArrayAdapter.createFromResource(
             this,
-            R.array.storage_types, // Ensure this array includes "Fridge", "Display", and "Stock"
+            R.array.storage_types, // This array should include "Fridge", "Display", and "Stock"
             android.R.layout.simple_spinner_item
         ).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -64,7 +70,6 @@ class AddItemActivity : AppCompatActivity() {
         btnAdd.setOnClickListener {
             val baseName = editTextName.text.toString().trim()
             val variant = editTextVariant.text.toString().trim()
-            // Get the storage type from the spinner.
             val storageType = spinnerStorage.selectedItem.toString()
 
             // Retrieve expiration date only if the date picker is visible.
@@ -77,7 +82,7 @@ class AddItemActivity : AppCompatActivity() {
                 0L // For non-expiring items.
             }
 
-            // Launch a coroutine to compute the new name (with batch suffix if needed) and insert the item.
+            // Launch a coroutine to compute the new name and insert the item.
             CoroutineScope(Dispatchers.IO).launch {
                 val newName = getBatchName(baseName)
                 // Create a new InventoryItem with default quantity 6.
@@ -86,35 +91,52 @@ class AddItemActivity : AppCompatActivity() {
                     variant = variant,
                     expirationDate = expirationDate,
                     quantity = 6,
-                    storageType = storageType // Expected to be "Fridge", "Display", or "Stock".
+                    storageType = storageType // Expected: "Fridge", "Display", or "Stock"
                 )
+                // Insert into Room.
                 inventoryDao.insert(item)
-                withContext(Dispatchers.Main) {
-                    finish()
-                }
+
+                // Also add to Firestore.
+                val itemMap = hashMapOf(
+                    "name" to item.name,
+                    "variant" to item.variant,
+                    "expirationDate" to item.expirationDate,
+                    "quantity" to item.quantity,
+                    "storageType" to item.storageType
+                )
+                firestore.collection("inventoryItems")
+                    .add(itemMap)
+                    .addOnSuccessListener { documentReference ->
+                        Log.d("AddItemActivity", "Item added to Firestore with ID: ${documentReference.id}")
+                        Toast.makeText(this@AddItemActivity, "Item added successfully", Toast.LENGTH_SHORT).show()
+                        CoroutineScope(Dispatchers.Main).launch {
+                            finish()
+                        }
+                    }
+                    .addOnFailureListener { exception: Exception ->
+                        Log.e("AddItemActivity", "Error adding item to Firestore", exception)
+                        Toast.makeText(this@AddItemActivity, "Failed to add item to cloud", Toast.LENGTH_SHORT).show()
+                    }
             }
         }
     }
 
-    // Helper function to compute a new name with a "Batch X" suffix.
-    // If an item exists with the base name, treat that as Batch 1 so that the new duplicate becomes Batch 2.
+    // Helper function to compute a new name with a "Batch" suffix.
+    // This function is now a member of the Activity.
     private suspend fun getBatchName(baseName: String): String {
         val existingItems = inventoryDao.getItemsByName(baseName)
         if (existingItems.isEmpty()) {
             return baseName
         } else {
-            var maxBatch = 0
+            var maxBatch = 1 // Assume base item is Batch 1 so the new duplicate becomes Batch 2.
             for (item in existingItems) {
-                if (item.name == baseName) {
-                    // Treat the base item as Batch 1.
-                    maxBatch = maxOf(maxBatch, 1)
-                } else if (item.name.startsWith("$baseName Batch ")) {
+                if (item.name.startsWith("$baseName Batch ")) {
                     val suffix = item.name.substringAfter("$baseName Batch ").trim()
-                    val number = suffix.toIntOrNull() ?: 0
-                    maxBatch = maxOf(maxBatch, number)
+                    val number = suffix.toIntOrNull() ?: 1
+                    maxBatch = maxOf(maxBatch, number + 1)
                 }
             }
-            return "$baseName Batch ${maxBatch + 1}"
+            return "$baseName Batch $maxBatch"
         }
     }
 }
