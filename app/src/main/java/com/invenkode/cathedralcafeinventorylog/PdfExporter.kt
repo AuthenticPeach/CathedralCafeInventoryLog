@@ -9,8 +9,10 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
+// Define row types for our report.
 enum class RowType { SECTION_HEADER, ITEM }
 
+// A simple data class representing one row in the PDF report.
 data class ReportRow(
     val type: RowType,
     val leftText: String,
@@ -51,7 +53,8 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
     val sectionHeaderBgPaint = Paint().apply {
         color = Color.DKGRAY
     }
-    // Page settings.
+
+    // Page settings (A4 at 72 dpi).
     val pageWidth = 595
     val pageHeight = 842
     val margin = 40
@@ -107,25 +110,19 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
     val reportRows = mutableListOf<ReportRow>()
     fun addSection(sectionTitle: String, items: List<InventoryItem>) {
         if (items.isNotEmpty()) {
-            // Add section header.
             reportRows.add(ReportRow(RowType.SECTION_HEADER, sectionTitle))
-            // Add each item row.
             for (item in items) {
                 val left = if (item.variant.isNotBlank())
-                    "${item.name} - ${item.variant}"
-                else
-                    item.name
+                    "${item.name} - ${item.variant}" else item.name
                 val right = if (reportType == "Expiration") {
-                    if (item.expirationDate > 0L)
-                        dateFormat.format(Date(item.expirationDate))
-                    else
-                        "---"
+                    if (item.expirationDate > 0L) dateFormat.format(Date(item.expirationDate)) else "---"
                 } else {
                     "Qty: ${item.quantity}"
                 }
-                // Determine background color.
                 val bg = when (reportType) {
-                    "Expiration" -> if (item.expirationDate > 0L) getExpirationBgColor(item.expirationDate, System.currentTimeMillis()) else null
+                    "Expiration" -> if (item.expirationDate > 0L)
+                        getExpirationBgColor(item.expirationDate, System.currentTimeMillis())
+                    else null
                     "Inventory" -> getInventoryBgColor(item.quantity)
                     else -> null
                 }
@@ -143,7 +140,7 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
     val leftColumnX = margin.toFloat()
     val rightColumnX = margin.toFloat() + 400f
 
-    // Load the icon bitmap.
+    // Load the icon bitmap (ensure you have an icon in res/drawable named "cathedralcafeicon").
     val iconBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.cathedralcafeicon)
     val iconSize = 40
     val scaledIcon = Bitmap.createScaledBitmap(iconBitmap, iconSize, iconSize, true)
@@ -155,16 +152,15 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
     while (currentRowIndex < reportRows.size) {
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, currentPageNumber).create()
         val page = pdfDocument.startPage(pageInfo)
-        val canvas = page.canvas
+        val canvas: Canvas = page.canvas
 
-        // Fill page background.
+        // Fill the entire page with the background color.
         canvas.drawColor(pageBackgroundColor)
 
         var yPos = margin.toFloat()
-        // Draw header.
+        // Draw header: icon, title and export date.
         canvas.drawBitmap(scaledIcon, margin.toFloat(), yPos - scaledIcon.height / 2, null)
         val titleOffsetX = margin.toFloat() + iconSize + 10f
-        // Shift title text to start at titleOffsetX.
         canvas.drawText(titleText, titleOffsetX, yPos, titlePaint)
         yPos += 30f
         canvas.drawText(exportDateText, titleOffsetX, yPos, textPaint)
@@ -173,11 +169,11 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
         // Draw column headers.
         canvas.drawText("Item", leftColumnX, yPos, textPaint)
         canvas.drawText(if (reportType == "Expiration") "Exp Date" else "Quantity", rightColumnX, yPos, textPaint)
-        // Draw a horizontal line immediately under the header.
+        // Draw a horizontal line under the header.
         canvas.drawLine(margin.toFloat(), yPos + 5f, (pageWidth - margin).toFloat(), yPos + 5f, linePaint)
         yPos += rowHeight
 
-        // Iterate over report rows until page is full.
+        // Draw each report row.
         while (currentRowIndex < reportRows.size && yPos + rowHeight <= pageHeight - margin) {
             val row = reportRows[currentRowIndex]
             when (row.type) {
@@ -193,7 +189,7 @@ fun exportReportToPdf(context: Context, items: List<InventoryItem>, reportType: 
                     canvas.drawText(row.leftText, leftColumnX + 10f, yPos, headerTextPaint)
                 }
                 RowType.ITEM -> {
-                    // Draw background color for right column if provided.
+                    // Draw right column background if defined.
                     row.bgColor?.let { color ->
                         val bgPaint = Paint().apply { this.color = color }
                         val fm = textPaint.fontMetrics

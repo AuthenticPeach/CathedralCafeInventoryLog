@@ -20,7 +20,7 @@ fun exportReportToCsv(context: Context, items: List<InventoryItem>, reportType: 
     // Title and export date.
     val exportDateFormat = SimpleDateFormat("MM-dd-yyyy h:mm a", Locale.getDefault())
     val exportDateText = exportDateFormat.format(Date())
-    sb.append("Cathedral Cafe - $reportType Report\n")
+    sb.append("Cathedral Café - $reportType Report\n")
     sb.append("Exported on: $exportDateText\n\n")
 
     // Column headers.
@@ -40,7 +40,8 @@ fun exportReportToCsv(context: Context, items: List<InventoryItem>, reportType: 
         if (groupItems.isNotEmpty()) {
             sb.append("\n$title\n")
             for (item in groupItems) {
-                val itemName = if (item.variant.isNotBlank()) "${item.name} - ${item.variant}" else item.name
+                val itemName = if (item.variant.isNotBlank())
+                    "${item.name} - ${item.variant}" else item.name
                 val rightText = if (reportType == "Expiration") {
                     if (item.expirationDate > 0L)
                         SimpleDateFormat("MM-dd-yyyy", Locale.getDefault()).format(Date(item.expirationDate))
@@ -49,12 +50,13 @@ fun exportReportToCsv(context: Context, items: List<InventoryItem>, reportType: 
                 } else {
                     item.quantity.toString()
                 }
+                // Wrap item name in quotes (in case it contains commas)
                 sb.append("\"$itemName\",$rightText\n")
             }
         }
     }
 
-    // Add sections in order.
+    // Add sections in the desired order.
     addSection("Fridge Items", fridgeItems)
     addSection("Display Items", displayItems)
     addSection("Stock Items", stockItems)
