@@ -1,15 +1,9 @@
 package com.invenkode.cathedralcafeinventorylog
 
+import android.content.Context
 import android.os.Bundle
 import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.DatePicker
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.Spinner
-import android.widget.Toast
-import android.util.Log
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
@@ -17,10 +11,47 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+// Data class for a template.
+data class ItemTemplate(
+    val name: String,
+    val variant: String = "",
+    val storageType: String
+) {
+    // Convert to a string for storage in SharedPreferences.
+    fun toStorageString(): String = "$name|$variant|$storageType"
+
+    companion object {
+        // Parse a stored string back into an ItemTemplate.
+        fun fromStorageString(str: String): ItemTemplate? {
+            val parts = str.split("|")
+            return if (parts.size == 3) ItemTemplate(parts[0], parts[1], parts[2])
+            else null
+        }
+    }
+}
+
 class AddItemActivity : AppCompatActivity() {
 
     private lateinit var inventoryDao: InventoryDao
     private lateinit var firestore: FirebaseFirestore
+
+    private val PREFS_TEMPLATES = "item_templates"
+    private val KEY_TEMPLATES = "templates"
+
+    // Load saved templates from SharedPreferences.
+    private fun loadTemplates(): List<ItemTemplate> {
+        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
+        val storedSet = prefs.getStringSet(KEY_TEMPLATES, emptySet()) ?: emptySet()
+        return storedSet.mapNotNull { ItemTemplate.fromStorageString(it) }
+    }
+
+    // Save a new template to SharedPreferences.
+    private fun saveTemplate(template: ItemTemplate) {
+        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
+        val currentSet = prefs.getStringSet(KEY_TEMPLATES, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        currentSet.add(template.toStorageString())
+        prefs.edit().putStringSet(KEY_TEMPLATES, currentSet).apply()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -40,11 +71,52 @@ class AddItemActivity : AppCompatActivity() {
         val datePicker = findViewById<DatePicker>(R.id.datePicker)
         val datePickerContainer = findViewById<LinearLayout>(R.id.datePickerContainer)
         val btnAdd = findViewById<Button>(R.id.btnAdd)
+        // New: Spinner for templates – ensure your layout includes this view.
+        val spinnerTemplates = findViewById<Spinner>(R.id.spinnerTemplates)
+        // New: Button to save the current entry as a template.
+        val btnSaveTemplate = findViewById<Button>(R.id.btnSaveTemplate)
 
-        // Set up spinner with storage types from resources.
+        // Load saved templates.
+        val savedTemplates = loadTemplates()
+
+        // Populate the template spinner with "None" and any saved templates.
+        val templateOptions = mutableListOf("None")
+        templateOptions.addAll(savedTemplates.map { it.name })
+        ArrayAdapter(this, android.R.layout.simple_spinner_item, templateOptions).also { adapter ->
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerTemplates.adapter = adapter
+        }
+
+        // When a template is selected, prefill the entry fields.
+        spinnerTemplates.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(
+                parent: AdapterView<*>?, view: View?, position: Int, id: Long
+            ) {
+                if (position > 0) { // "None" is at position 0.
+                    val selectedTemplate = savedTemplates[position - 1]
+                    editTextName.setText(selectedTemplate.name)
+                    editTextVariant.setText(selectedTemplate.variant)
+                    // Set storage spinner to the template's storageType.
+                    val storageAdapter = spinnerStorage.adapter
+                    for (i in 0 until storageAdapter.count) {
+                        if (storageAdapter.getItem(i).toString().equals(selectedTemplate.storageType, ignoreCase = true)) {
+                            spinnerStorage.setSelection(i)
+                            break
+                        }
+                    }
+                } else {
+                    // Optionally clear fields when "None" is selected.
+                    editTextName.text.clear()
+                    editTextVariant.text.clear()
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Set up spinner adapter for storage types.
         ArrayAdapter.createFromResource(
             this,
-            R.array.storage_types, // This array should include "Fridge", "Display", and "Stock"
+            R.array.storage_types, // Should include "Fridge", "Display", and "Stock"
             android.R.layout.simple_spinner_item
         ).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -52,20 +124,39 @@ class AddItemActivity : AppCompatActivity() {
         }
 
         // Hide the date picker if "Stock" is selected.
-        spinnerStorage.setOnItemSelectedListener(object :
-            android.widget.AdapterView.OnItemSelectedListener {
+        spinnerStorage.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
-                parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long
+                parent: AdapterView<*>?, view: View?, position: Int, id: Long
             ) {
                 val selected = parent?.getItemAtPosition(position).toString()
                 datePickerContainer.visibility =
                     if (selected.equals("Stock", ignoreCase = true)) View.GONE else View.VISIBLE
             }
-
-            override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {
+            override fun onNothingSelected(parent: AdapterView<*>?) {
                 datePickerContainer.visibility = View.VISIBLE
             }
-        })
+        }
+
+        // Set up "Save as Template" button.
+        btnSaveTemplate.setOnClickListener {
+            val name = editTextName.text.toString().trim()
+            if (name.isEmpty()) {
+                Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val variant = editTextVariant.text.toString().trim()
+            val storageType = spinnerStorage.selectedItem.toString()
+            val newTemplate = ItemTemplate(name, variant, storageType)
+            saveTemplate(newTemplate)
+            Toast.makeText(this, "Template saved", Toast.LENGTH_SHORT).show()
+            // Refresh the spinner list.
+            val updatedTemplates = loadTemplates()
+            val updatedOptions = mutableListOf("None")
+            updatedOptions.addAll(updatedTemplates.map { it.name })
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, updatedOptions)
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerTemplates.adapter = adapter
+        }
 
         btnAdd.setOnClickListener {
             val baseName = editTextName.text.toString().trim()
@@ -79,24 +170,20 @@ class AddItemActivity : AppCompatActivity() {
                 }
                 calendar.timeInMillis
             } else {
-                0L // For non-expiring items.
+                0L
             }
 
-            // Launch a coroutine to compute the new name and insert the item.
             CoroutineScope(Dispatchers.IO).launch {
                 val newName = getBatchName(baseName)
-                // Create a new InventoryItem with default quantity 6.
                 val item = InventoryItem(
                     name = newName,
                     variant = variant,
                     expirationDate = expirationDate,
                     quantity = 6,
-                    storageType = storageType // Expected: "Fridge", "Display", or "Stock"
+                    storageType = storageType
                 )
-                // Insert into Room.
                 inventoryDao.insert(item)
 
-                // Also add to Firestore.
                 val itemMap = hashMapOf(
                     "name" to item.name,
                     "variant" to item.variant,
@@ -107,36 +194,27 @@ class AddItemActivity : AppCompatActivity() {
                 firestore.collection("inventoryItems")
                     .add(itemMap)
                     .addOnSuccessListener { documentReference ->
-                        Log.d("AddItemActivity", "Item added to Firestore with ID: ${documentReference.id}")
-                        Toast.makeText(this@AddItemActivity, "Item added successfully", Toast.LENGTH_SHORT).show()
-                        CoroutineScope(Dispatchers.Main).launch {
+                        runOnUiThread {
+                            Toast.makeText(this@AddItemActivity, "Item added successfully", Toast.LENGTH_SHORT).show()
                             finish()
                         }
                     }
                     .addOnFailureListener { exception: Exception ->
-                        Log.e("AddItemActivity", "Error adding item to Firestore", exception)
-                        Toast.makeText(this@AddItemActivity, "Failed to add item to cloud", Toast.LENGTH_SHORT).show()
+                        runOnUiThread {
+                            Toast.makeText(this@AddItemActivity, "Failed to add item to cloud", Toast.LENGTH_SHORT).show()
+                        }
                     }
             }
         }
     }
 
-    // Helper function to compute a new name with a "Batch" suffix.
-    // This function is now a member of the Activity.
     private suspend fun getBatchName(baseName: String): String {
         val existingItems = inventoryDao.getItemsByName(baseName)
-        if (existingItems.isEmpty()) {
-            return baseName
+        return if (existingItems.isEmpty()) {
+            baseName
         } else {
-            var maxBatch = 1 // Assume base item is Batch 1 so the new duplicate becomes Batch 2.
-            for (item in existingItems) {
-                if (item.name.startsWith("$baseName Batch ")) {
-                    val suffix = item.name.substringAfter("$baseName Batch ").trim()
-                    val number = suffix.toIntOrNull() ?: 1
-                    maxBatch = maxOf(maxBatch, number + 1)
-                }
-            }
-            return "$baseName Batch $maxBatch"
+            "$baseName Batch ${existingItems.size + 1}"
         }
     }
+
 }

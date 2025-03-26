@@ -1,20 +1,33 @@
 package com.invenkode.cathedralcafeinventorylog
 
 import android.content.Context
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import java.io.File
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.*
 
 /**
- * Exports a report of InventoryItems as a CSV file.
+ * Suspended function that exports a report of InventoryItems as a CSV file.
  *
  * @param context The application context.
- * @param items The list of InventoryItem objects to export.
+ * @param firestore The FirebaseFirestore instance.
  * @param reportType "Expiration" or "Inventory" to choose which type of report to export.
  * @return A File pointing to the exported CSV, or null if there was an error.
  */
-fun exportReportToCsv(context: Context, items: List<InventoryItem>, reportType: String): File? {
+suspend fun exportReportToCsv(context: Context, firestore: FirebaseFirestore, reportType: String): File? {
+    // Fetch all items from Firestore.
+    val querySnapshot = firestore.collection("inventoryItems").get().await()
+    val items = querySnapshot.documents.mapNotNull { doc ->
+        val name = doc.getString("name") ?: return@mapNotNull null
+        val variant = doc.getString("variant") ?: ""
+        val expirationDate = doc.getLong("expirationDate") ?: 0L
+        val quantity = (doc.getLong("quantity") ?: 0L).toInt()
+        val storageType = doc.getString("storageType") ?: ""
+        InventoryItem(doc.id.hashCode(), name, variant, expirationDate, quantity, storageType)
+    }
+
     val sb = StringBuilder()
 
     // Title and export date.
