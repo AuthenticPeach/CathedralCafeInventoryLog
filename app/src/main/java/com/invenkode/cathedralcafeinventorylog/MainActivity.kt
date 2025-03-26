@@ -17,6 +17,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import androidx.core.content.FileProvider
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : AppCompatActivity() {
 
@@ -91,8 +92,9 @@ class MainActivity : AppCompatActivity() {
         // Set up export FAB click listeners.
         fabExportExpiration.setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
-                val items = inventoryDao.getAllItemsSync()
-                val file = exportReportToPdf(this@MainActivity, items, "Expiration")
+                // Get Firestore instance instead of local items.
+                val firestore = FirebaseFirestore.getInstance()
+                val file = exportReportToPdf(this@MainActivity, firestore, "Expiration")
                 file?.let {
                     val fileUri: Uri = FileProvider.getUriForFile(
                         this@MainActivity,
@@ -113,12 +115,13 @@ class MainActivity : AppCompatActivity() {
 
         fabExportInventory.setOnClickListener {
             lifecycleScope.launch(Dispatchers.IO) {
-                val items = inventoryDao.getAllItemsSync()
-                val file = exportReportToPdf(this@MainActivity, items, "Inventory")
+                // Get Firestore instance.
+                val firestore = FirebaseFirestore.getInstance()
+                val file = exportReportToPdf(this@MainActivity, firestore, "Inventory")
                 file?.let {
                     val fileUri: Uri = FileProvider.getUriForFile(
                         this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",  // consistent authority
+                        "${applicationContext.packageName}.fileprovider",
                         it
                     )
                     val shareIntent = Intent(Intent.ACTION_SEND).apply {
@@ -141,7 +144,7 @@ class MainActivity : AppCompatActivity() {
                 file?.let {
                     val fileUri: Uri = FileProvider.getUriForFile(
                         this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",  // consistent authority
+                        "${applicationContext.packageName}.fileprovider",
                         it
                     )
                     runOnUiThread {
