@@ -17,7 +17,7 @@
 
         <!-- Left section: Item name and variant -->
         <LinearLayout
-            android:layout_width="300dp"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="5"
             android:orientation="vertical"

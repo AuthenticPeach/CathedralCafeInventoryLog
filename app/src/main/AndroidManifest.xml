@@ -8,15 +8,15 @@
 
     <!-- Declare minimum and target SDKs -->
     <uses-sdk
-        android:minSdkVersion="26"
+        android:minSdkVersion="25"
         android:targetSdkVersion="35" />
 
     <application
         android:name=".MyApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/cathedralcafe_launcher"
+        android:icon="@mipmap/cof_icon_legacy"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/cathedralcafe_launcher_round"
+        android:roundIcon="@mipmap/cof_icon_legacy"
         android:supportsRtl="true"
         android:theme="@style/Theme.CathedralCafeInventoryLog"
         tools:targetApi="35">
