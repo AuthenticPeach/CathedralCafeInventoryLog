@@ -38,6 +38,9 @@ class AddItemActivity : AppCompatActivity() {
     private val PREFS_TEMPLATES = "item_templates"
     private val KEY_TEMPLATES = "templates"
 
+    // Change to var so it can be updated.
+    private var savedTemplates: List<ItemTemplate> = listOf()
+
     // Load saved templates from SharedPreferences.
     private fun loadTemplates(): List<ItemTemplate> {
         val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
@@ -50,6 +53,7 @@ class AddItemActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
         val currentSet = prefs.getStringSet(KEY_TEMPLATES, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
         currentSet.add(template.toStorageString())
+        // Use commit() or apply() – here apply() is used.
         prefs.edit().putStringSet(KEY_TEMPLATES, currentSet).apply()
     }
 
@@ -71,21 +75,23 @@ class AddItemActivity : AppCompatActivity() {
         val datePicker = findViewById<DatePicker>(R.id.datePicker)
         val datePickerContainer = findViewById<LinearLayout>(R.id.datePickerContainer)
         val btnAdd = findViewById<Button>(R.id.btnAdd)
-        // New: Spinner for templates – ensure your layout includes this view.
+        // Spinner for templates – ensure your layout includes this view.
         val spinnerTemplates = findViewById<Spinner>(R.id.spinnerTemplates)
-        // New: Button to save the current entry as a template.
+        // Button to save the current entry as a template.
         val btnSaveTemplate = findViewById<Button>(R.id.btnSaveTemplate)
 
         // Load saved templates.
-        val savedTemplates = loadTemplates()
+        savedTemplates = loadTemplates()
 
         // Populate the template spinner with "None" and any saved templates.
-        val templateOptions = mutableListOf("None")
-        templateOptions.addAll(savedTemplates.map { it.name })
-        ArrayAdapter(this, android.R.layout.simple_spinner_item, templateOptions).also { adapter ->
+        fun updateTemplateSpinner() {
+            val templateOptions = mutableListOf("None")
+            templateOptions.addAll(savedTemplates.map { it.name })
+            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, templateOptions)
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinnerTemplates.adapter = adapter
         }
+        updateTemplateSpinner()
 
         // When a template is selected, prefill the entry fields.
         spinnerTemplates.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -93,6 +99,7 @@ class AddItemActivity : AppCompatActivity() {
                 parent: AdapterView<*>?, view: View?, position: Int, id: Long
             ) {
                 if (position > 0) { // "None" is at position 0.
+                    // Use the updated savedTemplates.
                     val selectedTemplate = savedTemplates[position - 1]
                     editTextName.setText(selectedTemplate.name)
                     editTextVariant.setText(selectedTemplate.variant)
@@ -149,13 +156,9 @@ class AddItemActivity : AppCompatActivity() {
             val newTemplate = ItemTemplate(name, variant, storageType)
             saveTemplate(newTemplate)
             Toast.makeText(this, "Template saved", Toast.LENGTH_SHORT).show()
-            // Refresh the spinner list.
-            val updatedTemplates = loadTemplates()
-            val updatedOptions = mutableListOf("None")
-            updatedOptions.addAll(updatedTemplates.map { it.name })
-            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, updatedOptions)
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerTemplates.adapter = adapter
+            // Update the savedTemplates variable and refresh the spinner.
+            savedTemplates = loadTemplates()
+            updateTemplateSpinner()
         }
 
         btnAdd.setOnClickListener {
@@ -193,7 +196,7 @@ class AddItemActivity : AppCompatActivity() {
                 )
                 firestore.collection("inventoryItems")
                     .add(itemMap)
-                    .addOnSuccessListener { documentReference ->
+                    .addOnSuccessListener {
                         runOnUiThread {
                             Toast.makeText(this@AddItemActivity, "Item added successfully", Toast.LENGTH_SHORT).show()
                             finish()
@@ -216,5 +219,4 @@ class AddItemActivity : AppCompatActivity() {
             "$baseName Batch ${existingItems.size + 1}"
         }
     }
-
 }
