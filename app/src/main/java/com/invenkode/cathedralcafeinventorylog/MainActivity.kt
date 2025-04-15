@@ -3,6 +3,7 @@ package com.invenkode.cathedralcafeinventorylog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -13,18 +14,17 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 import android.graphics.Color
+import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import androidx.core.content.FileProvider
 
 class MainActivity : AppCompatActivity() {
 
-    // Public FAB properties so fragments can access them.
+    // Public FAB for adding and one export button.
     lateinit var fab: FloatingActionButton
-    lateinit var fabExportExpiration: FloatingActionButton
-    lateinit var fabExportInventory: FloatingActionButton
-    lateinit var fabExportCsv: FloatingActionButton
+    lateinit var fabExport: FloatingActionButton
 
     private lateinit var viewPager: ViewPager2
     private lateinit var tabLayout: TabLayout
@@ -39,9 +39,7 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize FABs.
         fab = findViewById(R.id.fab)
-        fabExportExpiration = findViewById(R.id.fabExportExpiration)
-        fabExportInventory = findViewById(R.id.fabExportInventory)
-        fabExportCsv = findViewById(R.id.fabExportCsv)
+        fabExport = findViewById(R.id.fabExport)
 
         viewPager = findViewById(R.id.viewPager)
         tabLayout = findViewById(R.id.tabLayout)
@@ -88,72 +86,24 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        // Set up export FAB click listeners.
-        fabExportExpiration.setOnClickListener {
-            lifecycleScope.launch(Dispatchers.IO) {
-                val items = inventoryDao.getAllItemsSync()
-                val file = exportReportToPdf(this@MainActivity, items, "Expiration")
-                file?.let {
-                    val fileUri: Uri = FileProvider.getUriForFile(
-                        this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",  // consistent authority
-                        it
-                    )
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/pdf"
-                        putExtra(Intent.EXTRA_STREAM, fileUri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    runOnUiThread {
-                        startActivity(Intent.createChooser(shareIntent, "Share Expiration Report"))
+        // Set up the export FAB to show export options.
+        fabExport.setOnClickListener {
+            val options = arrayOf(
+                "Export Expiration PDF",
+                "Export Inventory PDF",
+                "Export Expiration CSV"
+            )
+            AlertDialog.Builder(this)
+                .setTitle("Choose Export Option")
+                .setItems(options) { _, which ->
+                    when (which) {
+                        0 -> exportReport("Expiration", "pdf")
+                        1 -> exportReport("Inventory", "pdf")
+                        2 -> exportReport("Expiration", "csv")
                     }
                 }
-            }
-        }
-
-        fabExportInventory.setOnClickListener {
-            lifecycleScope.launch(Dispatchers.IO) {
-                val items = inventoryDao.getAllItemsSync()
-                val file = exportReportToPdf(this@MainActivity, items, "Inventory")
-                file?.let {
-                    val fileUri: Uri = FileProvider.getUriForFile(
-                        this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",  // consistent authority
-                        it
-                    )
-                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                        type = "application/pdf"
-                        putExtra(Intent.EXTRA_STREAM, fileUri)
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                    }
-                    runOnUiThread {
-                        startActivity(Intent.createChooser(shareIntent, "Share Inventory Report"))
-                    }
-                }
-            }
-        }
-
-        fabExportCsv.setOnClickListener {
-            lifecycleScope.launch(Dispatchers.IO) {
-                val items = inventoryDao.getAllItemsSync()
-                // Change "Expiration" to "Inventory" if needed.
-                val file = exportReportToCsv(this@MainActivity, items, "Expiration")
-                file?.let {
-                    val fileUri: Uri = FileProvider.getUriForFile(
-                        this@MainActivity,
-                        "${applicationContext.packageName}.fileprovider",  // consistent authority
-                        it
-                    )
-                    runOnUiThread {
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/csv"
-                            putExtra(Intent.EXTRA_STREAM, fileUri)
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        startActivity(Intent.createChooser(shareIntent, "Share CSV Report"))
-                    }
-                }
-            }
+                .setNegativeButton("Cancel", null)
+                .show()
         }
 
         // Schedule WorkManager to check expiration dates daily.
@@ -168,20 +118,42 @@ class MainActivity : AppCompatActivity() {
         observeDataAndUpdateTabs()
     }
 
+    private fun exportReport(reportType: String, format: String) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val firestore = FirebaseFirestore.getInstance()
+            val file = if (format == "pdf") {
+                exportReportToPdf(this@MainActivity, firestore, reportType)
+            } else {
+                exportReportToCsv(this@MainActivity, firestore, reportType)
+            }
+            file?.let {
+                val fileUri: Uri = FileProvider.getUriForFile(
+                    this@MainActivity,
+                    "${applicationContext.packageName}.fileprovider",
+                    it
+                )
+                val mimeType = if (format == "pdf") "application/pdf" else "text/csv"
+                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                    type = mimeType
+                    putExtra(Intent.EXTRA_STREAM, fileUri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                runOnUiThread {
+                    startActivity(Intent.createChooser(shareIntent, "Share $reportType Report"))
+                }
+            }
+        }
+    }
+
     private fun observeDataAndUpdateTabs() {
         inventoryDao.getAll().observe(this) { items ->
             val now = System.currentTimeMillis()
-            // For Expirations: count items that are expiring soon or expired, excluding Stock items.
             val expiringSoonCount = items.filter {
                 !it.storageType.equals("Stock", ignoreCase = true)
             }.count { it.expirationDate <= now || (it.expirationDate - now) < 7 * 86_400_000L }
-
-            // For Inventory: count only non-stock items with quantity <=2.
             val lowStockCount = items.filter {
                 !it.storageType.equals("Stock", ignoreCase = true)
             }.count { it.quantity <= 2 }
-
-            // For General Stock: count items where storageType equals "Stock" and quantity <=2.
             val generalStockLowCount = items.filter {
                 it.storageType.equals("Stock", ignoreCase = true)
             }.count { it.quantity <= 2 }
