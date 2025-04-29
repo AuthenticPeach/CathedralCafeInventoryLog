@@ -18,7 +18,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/cathedralcafe_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.CathedralCafeInventoryLog"
+        android:theme="@style/Theme.CathedralCafeInventoryLog.LightActionBar"
         tools:targetApi="35">
 
         <activity
@@ -34,7 +34,14 @@
             android:exported="true" />
         <activity
             android:name=".AddItemActivity"
-            android:exported="true" />
+            android:theme="@style/Theme.CathedralCafeInventoryLog.LightActionBar"
+            android:exported="true"
+            android:parentActivityName=".MainActivity">
+            <!-- For compatibility with API < 16 -->
+            <meta-data
+                android:name="android.support.PARENT_ACTIVITY"
+                android:value=".MainActivity"/>
+        </activity>
 
         <provider
             android:name="androidx.core.content.FileProvider"

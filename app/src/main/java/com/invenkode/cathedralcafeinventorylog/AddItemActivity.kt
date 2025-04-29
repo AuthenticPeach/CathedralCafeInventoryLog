@@ -1,31 +1,31 @@
 package com.invenkode.cathedralcafeinventorylog
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
-import android.view.View
+import android.view.MenuItem
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.FileProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.*
 import java.util.Calendar
 
-// Data class for a template.
 data class ItemTemplate(
     val name: String,
     val variant: String = "",
     val storageType: String
 ) {
-    // Convert to a string for storage in SharedPreferences.
     fun toStorageString(): String = "$name|$variant|$storageType"
-
     companion object {
-        // Parse a stored string back into an ItemTemplate.
         fun fromStorageString(str: String): ItemTemplate? {
             val parts = str.split("|")
-            return if (parts.size == 3) ItemTemplate(parts[0], parts[1], parts[2])
-            else null
+            return if (parts.size == 3) ItemTemplate(parts[0], parts[1], parts[2]) else null
         }
     }
 }
@@ -38,81 +38,49 @@ class AddItemActivity : AppCompatActivity() {
     private val PREFS_TEMPLATES = "item_templates"
     private val KEY_TEMPLATES = "templates"
 
-    // Change to var so it can be updated.
-    private var savedTemplates: List<ItemTemplate> = listOf()
-
-    // Load saved templates from SharedPreferences.
-    private fun loadTemplates(): List<ItemTemplate> {
-        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
-        val storedSet = prefs.getStringSet(KEY_TEMPLATES, emptySet()) ?: emptySet()
-        return storedSet.mapNotNull { ItemTemplate.fromStorageString(it) }
-    }
-
-    // Save a new template to SharedPreferences.
-    private fun saveTemplate(template: ItemTemplate) {
-        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
-        val currentSet = prefs.getStringSet(KEY_TEMPLATES, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
-        currentSet.add(template.toStorageString())
-        // Use commit() or apply() – here apply() is used.
-        prefs.edit().putStringSet(KEY_TEMPLATES, currentSet).apply()
-    }
+    private var savedTemplates: MutableList<ItemTemplate> = mutableListOf()
+    private lateinit var spinnerTemplates: Spinner
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_add_item)
 
-        // Initialize local Room DAO.
-        val db = InventoryDatabase.getDatabase(this)
-        inventoryDao = db.inventoryDao()
-
-        // Initialize Firestore.
+        inventoryDao = InventoryDatabase.getDatabase(this).inventoryDao()
         firestore = FirebaseFirestore.getInstance()
 
-        // Get views from the layout.
+        // Bind views
+        spinnerTemplates = findViewById(R.id.spinnerTemplates)
         val spinnerStorage = findViewById<Spinner>(R.id.spinnerStorageType)
         val editTextName = findViewById<EditText>(R.id.editTextName)
         val editTextVariant = findViewById<EditText>(R.id.editTextVariant)
         val datePicker = findViewById<DatePicker>(R.id.datePicker)
         val datePickerContainer = findViewById<LinearLayout>(R.id.datePickerContainer)
         val btnAdd = findViewById<Button>(R.id.btnAdd)
-        // Spinner for templates – ensure your layout includes this view.
-        val spinnerTemplates = findViewById<Spinner>(R.id.spinnerTemplates)
-        // Button to save the current entry as a template.
         val btnSaveTemplate = findViewById<Button>(R.id.btnSaveTemplate)
-
-        // Load saved templates.
+        val btnManageTemplates = findViewById<Button>(R.id.btnManageTemplates)
+        // <-- enable the Up button in the action bar
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        // Load and show templates
         savedTemplates = loadTemplates()
+        refreshSpinner()
 
-        // Populate the template spinner with "None" and any saved templates.
-        fun updateTemplateSpinner() {
-            val templateOptions = mutableListOf("None")
-            templateOptions.addAll(savedTemplates.map { it.name })
-            val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, templateOptions)
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerTemplates.adapter = adapter
-        }
-        updateTemplateSpinner()
-
-        // When a template is selected, prefill the entry fields.
+        // Template selection
         spinnerTemplates.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?, view: View?, position: Int, id: Long
-            ) {
-                if (position > 0) { // "None" is at position 0.
-                    // Use the updated savedTemplates.
-                    val selectedTemplate = savedTemplates[position - 1]
-                    editTextName.setText(selectedTemplate.name)
-                    editTextVariant.setText(selectedTemplate.variant)
-                    // Set storage spinner to the template's storageType.
-                    val storageAdapter = spinnerStorage.adapter
-                    for (i in 0 until storageAdapter.count) {
-                        if (storageAdapter.getItem(i).toString().equals(selectedTemplate.storageType, ignoreCase = true)) {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, pos: Int, id: Long) {
+                if (pos > 0) {
+                    val tmpl = savedTemplates[pos - 1]
+                    editTextName.setText(tmpl.name)
+                    editTextVariant.setText(tmpl.variant)
+                    // set storage
+                    for (i in 0 until spinnerStorage.adapter.count) {
+                        if (spinnerStorage.adapter.getItem(i).toString()
+                                .equals(tmpl.storageType, ignoreCase = true)
+                        ) {
                             spinnerStorage.setSelection(i)
                             break
                         }
                     }
                 } else {
-                    // Optionally clear fields when "None" is selected.
                     editTextName.text.clear()
                     editTextVariant.text.clear()
                 }
@@ -120,61 +88,61 @@ class AddItemActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Set up spinner adapter for storage types.
+        // Storage spinner
         ArrayAdapter.createFromResource(
-            this,
-            R.array.storage_types, // Should include "Fridge", "Display", and "Stock"
-            android.R.layout.simple_spinner_item
-        ).also { adapter ->
-            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-            spinnerStorage.adapter = adapter
+            this, R.array.storage_types, android.R.layout.simple_spinner_item
+        ).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinnerStorage.adapter = it
         }
-
-        // Hide the date picker if "Stock" is selected.
         spinnerStorage.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?, view: View?, position: Int, id: Long
-            ) {
-                val selected = parent?.getItemAtPosition(position).toString()
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
                 datePickerContainer.visibility =
-                    if (selected.equals("Stock", ignoreCase = true)) View.GONE else View.VISIBLE
+                    if (spinnerStorage.selectedItem.toString().equals("Stock", true)) DatePicker.INVISIBLE else DatePicker.VISIBLE
             }
-            override fun onNothingSelected(parent: AdapterView<*>?) {
-                datePickerContainer.visibility = View.VISIBLE
-            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
 
-        // Set up "Save as Template" button.
+        // Save as template
         btnSaveTemplate.setOnClickListener {
             val name = editTextName.text.toString().trim()
-            if (name.isEmpty()) {
-                Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
-                return@setOnClickListener
-            }
-            val variant = editTextVariant.text.toString().trim()
-            val storageType = spinnerStorage.selectedItem.toString()
-            val newTemplate = ItemTemplate(name, variant, storageType)
-            saveTemplate(newTemplate)
-            Toast.makeText(this, "Template saved", Toast.LENGTH_SHORT).show()
-            // Update the savedTemplates variable and refresh the spinner.
+            if (name.isEmpty()) return@setOnClickListener Toast.makeText(this, "Name cannot be empty", Toast.LENGTH_SHORT).show()
+            val tmpl = ItemTemplate(name, editTextVariant.text.toString().trim(), spinnerStorage.selectedItem.toString())
+            saveTemplate(tmpl)
             savedTemplates = loadTemplates()
-            updateTemplateSpinner()
+            refreshSpinner()
+            Toast.makeText(this, "Template saved", Toast.LENGTH_SHORT).show()
         }
 
+        // Manage (delete/export/import)
+        btnManageTemplates.setOnClickListener {
+            if (savedTemplates.isEmpty()) {
+                Toast.makeText(this, "No templates to manage", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            val actions = arrayOf("Delete a Template", "Export Templates Backup", "Import Templates from Backup")
+            AlertDialog.Builder(this)
+                .setTitle("Manage Templates")
+                .setItems(actions) { _, which ->
+                    when (which) {
+                        0 -> showDeleteDialog()
+                        1 -> exportBackup()
+                        2 -> importBackup()
+                    }
+                }
+                .show()
+        }
+
+        // Add item
         btnAdd.setOnClickListener {
             val baseName = editTextName.text.toString().trim()
             val variant = editTextVariant.text.toString().trim()
-            val storageType = spinnerStorage.selectedItem.toString()
-
-            // Retrieve expiration date only if the date picker is visible.
-            val expirationDate: Long = if (datePickerContainer.visibility == View.VISIBLE) {
-                val calendar = Calendar.getInstance().apply {
+            val storage = spinnerStorage.selectedItem.toString()
+            val expirationDate = if (datePickerContainer.visibility == DatePicker.VISIBLE) {
+                Calendar.getInstance().apply {
                     set(datePicker.year, datePicker.month, datePicker.dayOfMonth, 0, 0, 0)
-                }
-                calendar.timeInMillis
-            } else {
-                0L
-            }
+                }.timeInMillis
+            } else 0L
 
             CoroutineScope(Dispatchers.IO).launch {
                 val newName = getBatchName(baseName)
@@ -183,40 +151,145 @@ class AddItemActivity : AppCompatActivity() {
                     variant = variant,
                     expirationDate = expirationDate,
                     quantity = 6,
-                    storageType = storageType
+                    storageType = storage
                 )
                 inventoryDao.insert(item)
-
-                val itemMap = hashMapOf(
-                    "name" to item.name,
-                    "variant" to item.variant,
-                    "expirationDate" to item.expirationDate,
-                    "quantity" to item.quantity,
-                    "storageType" to item.storageType
+                firestore.collection("inventoryItems").add(
+                    mapOf(
+                        "name" to item.name,
+                        "variant" to item.variant,
+                        "expirationDate" to item.expirationDate,
+                        "quantity" to item.quantity,
+                        "storageType" to item.storageType
+                    )
                 )
-                firestore.collection("inventoryItems")
-                    .add(itemMap)
-                    .addOnSuccessListener {
-                        runOnUiThread {
-                            Toast.makeText(this@AddItemActivity, "Item added successfully", Toast.LENGTH_SHORT).show()
-                            finish()
-                        }
-                    }
-                    .addOnFailureListener { exception: Exception ->
-                        runOnUiThread {
-                            Toast.makeText(this@AddItemActivity, "Failed to add item to cloud", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                runOnUiThread {
+                    Toast.makeText(this@AddItemActivity, "Item added", Toast.LENGTH_SHORT).show()
+                    finish()
+                }
             }
         }
     }
 
-    private suspend fun getBatchName(baseName: String): String {
-        val existingItems = inventoryDao.getItemsByName(baseName)
-        return if (existingItems.isEmpty()) {
-            baseName
-        } else {
-            "$baseName Batch ${existingItems.size + 1}"
+    // -- TEMPLATE HELPERS --
+
+    private fun refreshSpinner() {
+        savedTemplates.sortBy { it.name }
+        val opts = listOf("None") + savedTemplates.map { it.name }
+        spinnerTemplates.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, opts
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+    }
+
+    private fun loadTemplates(): MutableList<ItemTemplate> {
+        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_TEMPLATES, emptySet()) ?: emptySet()
+        return set.mapNotNull { ItemTemplate.fromStorageString(it) }
+            .sortedBy { it.name }
+            .toMutableList()
+    }
+
+    private fun saveTemplate(template: ItemTemplate) {
+        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_TEMPLATES, mutableSetOf())!!.toMutableSet()
+        set.add(template.toStorageString())
+        prefs.edit().putStringSet(KEY_TEMPLATES, set).apply()
+    }
+
+    private fun deleteTemplate(idx: Int) {
+        val toRemove = savedTemplates[idx].toStorageString()
+        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
+        val set = prefs.getStringSet(KEY_TEMPLATES, mutableSetOf())!!.toMutableSet()
+        set.remove(toRemove)
+        prefs.edit().putStringSet(KEY_TEMPLATES, set).apply()
+        savedTemplates.removeAt(idx)
+    }
+
+    private fun showDeleteDialog() {
+        val names = savedTemplates.map { it.name }.toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle("Delete a Template?")
+            .setItems(names) { _, idx ->
+                AlertDialog.Builder(this)
+                    .setMessage("Really delete “${names[idx]}”?")
+                    .setPositiveButton("Delete") { _, _ ->
+                        deleteTemplate(idx)
+                        savedTemplates = loadTemplates()
+                        refreshSpinner()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
+            .show()
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                finish()      // go back to the TabActivity
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
+    }
+
+
+    private fun exportBackup() {
+        val file = File(getExternalFilesDir(null), "templates_backup.txt")
+        try {
+            BufferedWriter(FileWriter(file)).use { out ->
+                savedTemplates.forEach { out.write(it.toStorageString() + "\n") }
+            }
+            val uri: Uri = FileProvider.getUriForFile(
+                this, "$packageName.fileprovider", file
+            )
+            val share = Intent(Intent.ACTION_SEND).apply {
+                setType("text/plain")
+                putExtra(Intent.EXTRA_STREAM, uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            startActivity(Intent.createChooser(share, "Share Templates Backup"))
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Toast.makeText(this, "Export failed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun importBackup() {
+        val file = File(getExternalFilesDir(null), "templates_backup.txt")
+        if (!file.exists()) {
+            Toast.makeText(this, "No backup file found", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val imported = mutableListOf<ItemTemplate>()
+            BufferedReader(FileReader(file)).useLines { lines ->
+                lines.forEach { line ->
+                    ItemTemplate.fromStorageString(line.trim())?.let { imported.add(it) }
+                }
+            }
+            if (imported.isEmpty()) {
+                Toast.makeText(this, "No valid templates in file", Toast.LENGTH_SHORT).show()
+            } else {
+                overwriteAllTemplates(imported)
+                savedTemplates = loadTemplates()
+                refreshSpinner()
+                Toast.makeText(this, "Imported ${imported.size} templates", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: IOException) {
+            e.printStackTrace()
+            Toast.makeText(this, "Import failed", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun overwriteAllTemplates(newTemplates: List<ItemTemplate>) {
+        val prefs = getSharedPreferences(PREFS_TEMPLATES, Context.MODE_PRIVATE)
+        val set = newTemplates.map { it.toStorageString() }.toSet()
+        prefs.edit().putStringSet(KEY_TEMPLATES, set).apply()
+    }
+
+    private suspend fun getBatchName(baseName: String): String {
+        val existing = inventoryDao.getItemsByName(baseName)
+        return if (existing.isEmpty()) baseName else "$baseName Batch ${existing.size + 1}"
     }
 }
