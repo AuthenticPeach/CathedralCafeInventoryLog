@@ -21,6 +21,7 @@ class ExpirationFragment : Fragment() {
     private lateinit var firestore: FirebaseFirestore
     private lateinit var adapter: InventoryAdapter
     private lateinit var recyclerView: RecyclerView
+    private lateinit var inventoryDao: InventoryDao
 
     /**
      * Returns an ordering value:
@@ -42,54 +43,40 @@ class ExpirationFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         recyclerView = view.findViewById(R.id.recyclerViewExpiration)
-        // Enable editing so that a long-press launches EditItemActivity.
         adapter = InventoryAdapter(isEditable = true)
         recyclerView.adapter = adapter
         recyclerView.layoutManager = LinearLayoutManager(requireContext())
 
         firestore = FirebaseFirestore.getInstance()
+        inventoryDao = InventoryDatabase.getDatabase(requireContext()).inventoryDao()
 
-        // Listen for real-time changes in the Firestore collection "inventoryItems".
-        firestore.collection("inventoryItems")
-            .addSnapshotListener { snapshot, exception ->
-                if (exception != null) {
-                    Toast.makeText(
-                        requireContext(),
-                        "Error fetching updates: ${exception.message}",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@addSnapshotListener
-                }
-                if (snapshot != null) {
-                    val now = System.currentTimeMillis()
-                    // Map each document to an InventoryItem. Here we use the document’s hash code as an ID.
-                    val items = snapshot.documents.mapNotNull { doc ->
-                        val name = doc.getString("name") ?: return@mapNotNull null
-                        val variant = doc.getString("variant") ?: ""
-                        val expirationDate = doc.getLong("expirationDate") ?: 0L
-                        val quantity = (doc.getLong("quantity") ?: 0L).toInt()
-                        val storageType = doc.getString("storageType") ?: ""
-                        // Exclude Stock items for the expiration tab.
-                        if (storageType.equals("Stock", ignoreCase = true)) null
-                        else InventoryItem(doc.id.hashCode(), name, variant, expirationDate, quantity, storageType)
-                    }
-                    // Sort the items by status (expired, expiring soon, fresh) then by expiration date.
-                    val sortedItems = items.sortedWith(
-                        compareBy({ getStatusOrder(it.expirationDate, now) }, { it.expirationDate })
-                    )
-                    adapter.submitList(sortedItems)
-                }
+        // Observe from Room
+        inventoryDao.getAll().observe(viewLifecycleOwner) { allItems ->
+            val now = System.currentTimeMillis()
+            val expirationItems = allItems.filter {
+                !it.storageType.equals("Stock", ignoreCase = true)
             }
 
-        // Add swipe-to-delete functionality with an Undo option.
+            val sortedItems = expirationItems.sortedWith(
+                compareBy({ getStatusOrder(it.expirationDate, now) }, { it.expirationDate })
+            )
+
+            adapter.submitList(sortedItems)
+        }
+
+        // Swipe-to-delete with undo
         val swipeHandler = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
             override fun onMove(rv: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
                 val position = viewHolder.adapterPosition
                 val deletedItem = adapter.currentList[position]
+
                 lifecycleScope.launch(Dispatchers.IO) {
-                    // Delete from Firestore.
+                    // Delete from Room
+                    inventoryDao.delete(deletedItem)
+
+                    // Then delete from Firestore
                     val query = firestore.collection("inventoryItems")
                         .whereEqualTo("name", deletedItem.name)
                         .whereEqualTo("variant", deletedItem.variant)
@@ -100,10 +87,11 @@ class ExpirationFragment : Fragment() {
                         doc.reference.delete().await()
                     }
                 }
+
                 Snackbar.make(recyclerView, "Item deleted", Snackbar.LENGTH_LONG)
                     .setAction("Undo") {
                         lifecycleScope.launch(Dispatchers.IO) {
-                            // Re-add the item to Firestore.
+                            // Re-add to Firestore
                             val itemMap = hashMapOf(
                                 "name" to deletedItem.name,
                                 "variant" to deletedItem.variant,
@@ -112,11 +100,15 @@ class ExpirationFragment : Fragment() {
                                 "storageType" to deletedItem.storageType
                             )
                             firestore.collection("inventoryItems").add(itemMap).await()
+
+                            // Re-add to Room
+                            inventoryDao.insert(deletedItem)
                         }
                     }
                     .show()
             }
         }
+
         ItemTouchHelper(swipeHandler).attachToRecyclerView(recyclerView)
     }
 }

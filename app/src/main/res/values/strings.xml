@@ -4,12 +4,19 @@
     <string name="add_item">Add Item</string>
     <string name="export">Export</string>
     <string name="item_name">Item Name</string>
+    <string name="ideal_stock">Ideal Stock</string>
+    <string name="running_low">Running Low</string>
+    <string name="stock_alert_type">Stock alert mode</string>
     <string name="save_template">Save as Template</string>
     <string name="variant_name">Variant (e.g., Blueberry)</string>
     <string name="export_csv">Export as CSV</string>
     <string name="export_inventory">Export Inventory as PDF</string>
     <string name="export_expiration">Export Expiration Dates as PDF</string>
     <string name="final_qty">0</string>
+    <string name="X">❌</string>
+    <string name="manage_templates">Manage Templates</string>
+    <string name="CheckMark">✅</string>
+    <string name="category_name">Category Name</string>
     <string-array name="storage_types">
         <item>Fridge</item>
         <item>Display</item>

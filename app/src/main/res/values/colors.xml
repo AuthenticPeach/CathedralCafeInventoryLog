@@ -2,6 +2,9 @@
     <!-- Primary colors -->
     <color name="primaryColor">#1976D2</color>          <!-- A medium blue -->
     <color name="primaryVariant">#115293</color>        <!-- A darker blue -->
+    <color name="blue">#2196F3</color>                  <!-- A light blue -->
+    <color name="black">#000000</color>                 <!-- Black -->
+
     <color name="secondaryColor">#FF9800</color>          <!-- A vivid orange -->
     <color name="darker_gray">#666666</color>
 

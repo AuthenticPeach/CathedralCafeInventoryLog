@@ -28,4 +28,7 @@ interface InventoryDao {
     @Query("SELECT * FROM inventory WHERE name LIKE :namePrefix || '%'")
     suspend fun getItemsByName(namePrefix: String): List<InventoryItem>
 
+    @Query("UPDATE inventory SET isRunningLow = :isLow WHERE id = :itemId")
+    fun updateRunningLow(itemId: Int, isLow: Boolean)
+
 }

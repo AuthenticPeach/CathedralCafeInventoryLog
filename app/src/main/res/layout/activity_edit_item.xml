@@ -3,55 +3,108 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <!-- ONE direct child -->
     <LinearLayout
         android:orientation="vertical"
         android:padding="16dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
+        <!-- Name -->
         <EditText
             android:id="@+id/editTextName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:autofillHints=""
+            android:autofillHints="name"
             android:hint="@string/item_name"
-            android:layout_marginTop="16dp"
-            android:inputType="textCapWords" />
+            android:inputType="textCapWords"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="16dp"/>
 
-        <!-- New field for variant -->
+        <!-- Variant -->
         <EditText
             android:id="@+id/editTextVariant"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:autofillHints=""
+            android:autofillHints="username"
             android:hint="@string/variant_name"
-            android:layout_marginTop="8dp"
-            android:inputType="text" />
+            android:inputType="text"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="8dp"/>
 
+        <!-- Storage type -->
         <Spinner
             android:id="@+id/spinnerItemType"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"/>
 
-        <!-- Container for DatePicker (hidden for Stock items) -->
+        <!-- STOCK-ONLY OPTIONS -->
         <LinearLayout
-            android:id="@+id/datePickerContainer"
+            android:id="@+id/stockOptionsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="?attr/colorSurface"
             android:orientation="vertical"
+            android:padding="8dp"
+            android:visibility="gone">
+
+            <!-- Sub-category -->
+            <Spinner
+                android:id="@+id/spinnerStockSubCategory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+
+            <!-- Alert type -->
+            <Spinner
+                android:id="@+id/spinnerStockAlertType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"/>
+
+            <!-- Ideal threshold -->
+            <NumberPicker
+                android:id="@+id/numberPickerIdealThreshold"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"/>
+
+            <!-- Running-low toggle -->
+            <ToggleButton
+                android:id="@+id/toggleRunningLow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textOff="@string/X"
+                android:textOn="@string/CheckMark"
+                android:visibility="gone"/>
+
+        </LinearLayout>
+
+        <!-- Date Picker container (always in the view so findViewById works) -->
+        <LinearLayout
+            android:id="@+id/datePickerContainer"
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginTop="16dp">
 
             <DatePicker
                 android:id="@+id/datePicker"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"/>
         </LinearLayout>
 
+        <!-- Update button -->
         <Button
             android:id="@+id/btnUpdate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/update_item"
             android:layout_marginTop="24dp"/>
+
     </LinearLayout>
 </ScrollView>

@@ -1,14 +1,9 @@
 package com.invenkode.cathedralcafeinventorylog
 
 import android.os.Bundle
+import android.view.MenuItem
 import android.view.View
-import android.widget.ArrayAdapter
-import android.widget.Button
-import android.widget.DatePicker
-import android.widget.EditText
-import android.widget.LinearLayout
-import android.widget.Spinner
-import android.widget.Toast
+import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
@@ -23,116 +18,196 @@ class EditItemActivity : AppCompatActivity() {
     private lateinit var inventoryDao: InventoryDao
     private lateinit var firestore: FirebaseFirestore
 
+    // UI
+    private lateinit var editTextName: EditText
+    private lateinit var editTextVariant: EditText
+    private lateinit var datePicker: DatePicker
+    private lateinit var datePickerContainer: LinearLayout
+    private lateinit var spinnerItemType: Spinner
+    private lateinit var btnUpdate: Button
+
+    // Stock UI
+    private lateinit var stockOptions: LinearLayout
+    private lateinit var spinnerSubCat: Spinner
+    private lateinit var spinnerAlert: Spinner
+    private lateinit var npThreshold: NumberPicker
+    private lateinit var tbRunningLow: ToggleButton
+
+    // Intent‐extra keys
+    companion object {
+        private const val EXTRA_STOCK_SUBCAT = "stockSubCategory"
+        private const val EXTRA_STOCK_ALERT  = "stockAlertType"
+        private const val EXTRA_IDEAL_THRESH = "idealThreshold"
+        private const val EXTRA_RUNNING_LOW = "isRunningLow"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_edit_item)
 
-        // Initialize local Room DAO and Firestore.
+        // wire up
         inventoryDao = InventoryDatabase.getDatabase(this).inventoryDao()
-        firestore = FirebaseFirestore.getInstance()
+        firestore   = FirebaseFirestore.getInstance()
 
-        // Get views.
-        val editTextName = findViewById<EditText>(R.id.editTextName)
-        val editTextVariant = findViewById<EditText>(R.id.editTextVariant)
-        val datePicker = findViewById<DatePicker>(R.id.datePicker)
-        val datePickerContainer = findViewById<LinearLayout>(R.id.datePickerContainer)
-        val spinnerItemType = findViewById<Spinner>(R.id.spinnerItemType)
-        val btnUpdate = findViewById<Button>(R.id.btnUpdate)
+        editTextName        = findViewById(R.id.editTextName)
+        editTextVariant     = findViewById(R.id.editTextVariant)
+        datePicker          = findViewById(R.id.datePicker)
+        datePickerContainer = findViewById(R.id.datePickerContainer)
+        spinnerItemType     = findViewById(R.id.spinnerItemType)
+        btnUpdate           = findViewById(R.id.btnUpdate)
 
-        // Set up spinner adapter using your item types defined in resources.
+        stockOptions    = findViewById(R.id.stockOptionsContainer)
+        spinnerSubCat   = findViewById(R.id.spinnerStockSubCategory)
+        spinnerAlert    = findViewById(R.id.spinnerStockAlertType)
+        npThreshold     = findViewById(R.id.numberPickerIdealThreshold)
+        tbRunningLow    = findViewById(R.id.toggleRunningLow)
+
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
+        // 1) fill Type spinner
         ArrayAdapter.createFromResource(
             this,
-            R.array.item_types,
+            R.array.storage_types,
             android.R.layout.simple_spinner_item
         ).also { adapter ->
             adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
             spinnerItemType.adapter = adapter
         }
 
-        // Retrieve current values passed via the Intent.
-        val itemId = intent.getIntExtra("itemId", 0)
-        val currentName = intent.getStringExtra("name") ?: ""
-        val currentVariant = intent.getStringExtra("variant") ?: ""
-        val currentExpiration = intent.getLongExtra("expirationDate", 0L)
-        val currentQuantity = intent.getIntExtra("quantity", 6)
-        val currentStorageType = intent.getStringExtra("storageType") ?: "Fridge"
+        // 2) pull intent extras
+        val itemId           = intent.getIntExtra("itemId", 0)
+        val currentName      = intent.getStringExtra("name").orEmpty()
+        val currentVariant   = intent.getStringExtra("variant").orEmpty()
+        val currentExpiration= intent.getLongExtra("expirationDate", 0L)
+        val currentQuantity  = intent.getIntExtra("quantity", 6)
+        val currentStorage   = intent.getStringExtra("storageType").orEmpty()
 
-        // Populate fields.
-        editTextName.setText(currentName)
-        editTextVariant.setText(currentVariant)
+        val currentSubCat      = intent.getStringExtra(EXTRA_STOCK_SUBCAT).orEmpty()
+        val currentAlertType   = intent.getStringExtra(EXTRA_STOCK_ALERT).orEmpty()
+        val currentThreshold   = intent.getIntExtra(EXTRA_IDEAL_THRESH, 0)
+        val currentIsRunningLow= intent.getBooleanExtra(EXTRA_RUNNING_LOW, false)
 
-        // Set spinner selection based on current storage type.
-        val spinnerAdapter = spinnerItemType.adapter
-        for (i in 0 until spinnerAdapter.count) {
-            if (spinnerAdapter.getItem(i).toString().equals(currentStorageType, ignoreCase = true)) {
+        // 3) set up Stock‐alert spinner
+        val alertTypes = listOf("Ideal Stock", "Running low")
+        spinnerAlert.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, alertTypes
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        spinnerAlert.onItemSelectedListener = object: AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>, v: View?, pos: Int, id: Long) {
+                npThreshold.visibility   = if (pos == 0) View.VISIBLE else View.GONE
+                tbRunningLow.visibility  = if (pos == 1) View.VISIBLE else View.GONE
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) = Unit
+        }
+
+        npThreshold.minValue = 0
+        npThreshold.maxValue = 100
+
+        // 4) set up SubCat spinner
+        val subCats = listOf(
+            "Cups and Lids","Paper Goods","Teas and lemonade","Smoothies", "Food & Snacks", "Cold Drinks",
+            "Coffee Beans","Cleaning Supplies","Sauces and Syrups","Milks","Powders & Condiments"
+        )
+        spinnerSubCat.adapter = ArrayAdapter(
+            this, android.R.layout.simple_spinner_item, subCats
+        ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+
+        // 5) now prefill everything:
+
+        // name & variant
+        editTextName.text.clear();      editTextName.setText(currentName)
+        editTextVariant.text.clear();   editTextVariant.setText(currentVariant)
+
+        // storage‐type
+        subCats.indexOf(currentSubCat).takeIf { it >= 0 }?.let {
+            spinnerSubCat.setSelection(it)
+        }
+        alertTypes.indexOfFirst { it.startsWith(currentAlertType, true) }
+            .takeIf { it >= 0 }?.let { spinnerAlert.setSelection(it) }
+
+        // threshold & toggle state
+        npThreshold.value    = currentThreshold
+        tbRunningLow.isChecked = currentIsRunningLow
+
+        // date & stock options visibility
+        spinnerItemType.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
+                val isStock = spinnerItemType.selectedItem.toString().equals("Stock", true)
+                datePickerContainer.visibility = if (isStock) View.GONE else View.VISIBLE
+                stockOptions.visibility        = if (isStock) View.VISIBLE else View.GONE
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // set type spinner to current, to fire that listener:
+        for (i in 0 until spinnerItemType.adapter.count) {
+            if (spinnerItemType.adapter.getItem(i).toString().equals(currentStorage, true)) {
                 spinnerItemType.setSelection(i)
                 break
             }
         }
 
-        // Hide date picker if storage type is "Stock".
-        if (currentStorageType.equals("Stock", ignoreCase = true)) {
-            datePickerContainer.visibility = View.GONE
-        } else {
-            datePickerContainer.visibility = View.VISIBLE
-            if (currentExpiration > 0L) {
-                val calendar = Calendar.getInstance().apply { timeInMillis = currentExpiration }
-                datePicker.updateDate(calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH))
+        // initialize date‐picker if non‐stock
+        if (!currentStorage.equals("Stock", true) && currentExpiration > 0L) {
+            Calendar.getInstance().apply {
+                timeInMillis = currentExpiration
+                datePicker.updateDate(get(Calendar.YEAR), get(Calendar.MONTH), get(Calendar.DAY_OF_MONTH))
             }
         }
 
+        // 6) save updates
         btnUpdate.setOnClickListener {
-            val updatedName = editTextName.text.toString()
-            val updatedVariant = editTextVariant.text.toString()
-            val updatedStorageType = spinnerItemType.selectedItem.toString()
-            val updatedExpiration = if (datePickerContainer.visibility == View.VISIBLE) {
-                val calendar = Calendar.getInstance().apply {
+            val updatedName  = editTextName.text.toString().trim()
+            val updatedVar   = editTextVariant.text.toString().trim()
+            val updatedStore = spinnerItemType.selectedItem.toString()
+            val updatedExp   = if (datePickerContainer.visibility == View.VISIBLE) {
+                Calendar.getInstance().apply {
                     set(datePicker.year, datePicker.month, datePicker.dayOfMonth, 0, 0, 0)
-                }
-                calendar.timeInMillis
-            } else {
-                0L
-            }
+                }.timeInMillis
+            } else 0L
 
-            // Build the updated item (keeping quantity unchanged here).
             val updatedItem = InventoryItem(
-                id = itemId,
-                name = updatedName,
-                variant = updatedVariant,
-                expirationDate = updatedExpiration,
-                quantity = currentQuantity,
-                storageType = updatedStorageType
+                id               = itemId,
+                name             = updatedName,
+                variant          = updatedVar,
+                expirationDate   = updatedExp,
+                quantity         = currentQuantity,
+                storageType      = updatedStore,
+                stockSubCategory = spinnerSubCat.selectedItem as String,
+                stockAlertType   = if (spinnerAlert.selectedItem=="Ideal Stock") "ideal" else "runningLow",
+                idealThreshold   = npThreshold.value,
+                isRunningLow     = tbRunningLow.isChecked
             )
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
-                    // Update Room database.
                     inventoryDao.update(updatedItem)
-
-                    // Update Firestore.
-                    // (This example uses a query based on original fields; in a production app,
-                    //  consider storing the Firestore document ID in your local database.)
-                    val query = firestore.collection("inventoryItems")
+                    firestore.collection("inventoryItems")
                         .whereEqualTo("name", currentName)
                         .whereEqualTo("variant", currentVariant)
                         .whereEqualTo("expirationDate", currentExpiration)
                         .whereEqualTo("quantity", currentQuantity)
-                        .whereEqualTo("storageType", currentStorageType)
-                    val querySnapshot = query.get().await()
-                    for (doc in querySnapshot.documents) {
-                        val updatedMap = mapOf(
-                            "name" to updatedName,
-                            "variant" to updatedVariant,
-                            "expirationDate" to updatedExpiration,
-                            "quantity" to currentQuantity,
-                            "storageType" to updatedStorageType
-                        )
-                        // Await the update call.
-                        doc.reference.update(updatedMap).await()
-                    }
-                    withContext(Dispatchers.Main) {
-                        finish()
-                    }
+                        .whereEqualTo("storageType", currentStorage)
+                        .get().await()
+                        .documents
+                        .forEach { doc ->
+                            doc.reference.update(
+                                mapOf(
+                                    "name"             to updatedItem.name,
+                                    "variant"          to updatedItem.variant,
+                                    "expirationDate"   to updatedItem.expirationDate,
+                                    "quantity"         to updatedItem.quantity,
+                                    "storageType"      to updatedItem.storageType,
+                                    "stockSubCategory" to updatedItem.stockSubCategory,
+                                    "stockAlertType"   to updatedItem.stockAlertType,
+                                    "idealThreshold"   to updatedItem.idealThreshold,
+                                    "isRunningLow"     to updatedItem.isRunningLow
+                                )
+                            ).await()
+                        }
+
+                    withContext(Dispatchers.Main) { finish() }
                 } catch (e: Exception) {
                     e.printStackTrace()
                     withContext(Dispatchers.Main) {
@@ -141,5 +216,10 @@ class EditItemActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem)= when(item.itemId) {
+        android.R.id.home -> { finish(); true }
+        else              -> super.onOptionsItemSelected(item)
     }
 }

@@ -17,38 +17,56 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
+interface BadgeUpdateListener {
+    fun onStockBadgeCountChanged(count: Int)
+}
+
 class GeneralStockFragment : Fragment() {
 
     private lateinit var firestore: FirebaseFirestore
-    private lateinit var adapter: InventoryCountAdapter
-    private lateinit var recyclerView: RecyclerView
+    private lateinit var adapter: StockAdapter
+    private lateinit var rv: RecyclerView
+
+    private val subCats = listOf(
+        "Cups and Lids",
+        "Paper Goods",
+        "Teas and lemonade",
+        "Smoothies",
+        "Coffee Beans",
+        "Cleaning Supplies",
+        "Sauces and Syrups",
+        "Milks",
+        "Cold Drinks",
+        "Food & Snacks",
+        "Powders & Condiments"
+    )
+
+    var badgeListener: BadgeUpdateListener? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View? {
-        return inflater.inflate(R.layout.fragment_general_stock, container, false)
-    }
+    ): View = inflater.inflate(R.layout.fragment_general_stock, container, false)
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        recyclerView = view.findViewById(R.id.recyclerViewGeneral)
-        adapter = InventoryCountAdapter(onQuantityChanged = { item, newQty ->
-            updateItemQuantity(item, newQty)
-        }, enableEdit = true)
-        recyclerView.adapter = adapter
-        recyclerView.layoutManager = LinearLayoutManager(requireContext())
+        rv = view.findViewById(R.id.recyclerViewGeneral)
+
+        adapter = StockAdapter(
+            onQuantityChanged = { item, qty -> updateItemQuantity(item, qty) },
+            onRunningLowChanged = { item, isLow -> updateItemRunningLow(item, isLow) }
+        )
+
+        rv.adapter = adapter
+        rv.layoutManager = LinearLayoutManager(requireContext())
 
         firestore = FirebaseFirestore.getInstance()
-
-        // Listen for real-time changes for items with storageType "Stock"
         firestore.collection("inventoryItems")
             .whereEqualTo("storageType", "Stock")
             .addSnapshotListener { snapshot, exception ->
                 if (exception != null) {
-                    Toast.makeText(requireContext(),
-                        "Error fetching updates: ${exception.message}",
-                        Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Error fetching updates: ${exception.message}", Toast.LENGTH_SHORT).show()
                     return@addSnapshotListener
                 }
+
                 if (snapshot != null) {
                     val items = snapshot.documents.mapNotNull { doc ->
                         val name = doc.getString("name") ?: return@mapNotNull null
@@ -56,44 +74,89 @@ class GeneralStockFragment : Fragment() {
                         val expirationDate = doc.getLong("expirationDate") ?: 0L
                         val quantity = (doc.getLong("quantity") ?: 0L).toInt()
                         val storageType = doc.getString("storageType") ?: ""
-                        // Use the document’s hash code as the ID.
-                        InventoryItem(doc.id.hashCode(), name, variant, expirationDate, quantity, storageType)
+                        val stockAlertType = doc.getString("stockAlertType") ?: ""
+                        val isRunningLow = doc.getBoolean("isRunningLow") ?: false
+                        val idealThreshold = doc.getLong("idealThreshold")?.toInt()
+                        val subCat = doc.getString("stockSubCategory") ?: ""
+
+                        InventoryItem(
+                            id = doc.id.hashCode(),
+                            name = name,
+                            variant = variant,
+                            expirationDate = expirationDate,
+                            quantity = quantity,
+                            storageType = storageType,
+                            stockAlertType = stockAlertType,
+                            isRunningLow = isRunningLow,
+                            idealThreshold = idealThreshold,
+                            stockSubCategory = subCat
+                        )
                     }
-                    // Sort alphabetically by name.
-                    val sortedItems = items.sortedBy { it.name }
-                    adapter.submitList(sortedItems)
+
+                    // Convert to rows: group by subcategory, wrap in Header/Item
+                    val rows = mutableListOf<StockRow>()
+                    subCats.forEach { sub ->
+                        val subItems = items.filter { it.stockSubCategory == sub }
+                        if (subItems.isNotEmpty()) {
+                            rows.add(StockRow.Header(sub))
+                            rows.addAll(subItems.map { StockRow.Item(it) })
+                        }
+                    }
+
+                    adapter.submitList(rows)
+
+                    // Count red entries
+                    val redCount = items.count {
+                        (it.stockAlertType.equals("Running Low", true) && it.isRunningLow) ||
+                                (it.stockAlertType.equals("Ideal", true) && it.idealThreshold != null && it.quantity < it.idealThreshold)
+                    }
+
+                    badgeListener?.onStockBadgeCountChanged(redCount)
                 }
             }
 
-        // Set up swipe-to-delete with undo.
-        val swipeHandler = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
-            override fun onMove(rv: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean = false
+        // swipe-to-delete with undo
+        val swipeHandler = object : ItemTouchHelper.SimpleCallback(
+            0,
+            ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT
+        ) {
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.adapterPosition
-                val deletedItem = adapter.currentList[position]
-                lifecycleScope.launch(Dispatchers.IO) { deleteItem(deletedItem) }
-                Snackbar.make(recyclerView, "Item deleted", Snackbar.LENGTH_LONG)
-                    .setAction("Undo") {
-                        lifecycleScope.launch(Dispatchers.IO) { addItem(deletedItem) }
+                val pos = viewHolder.bindingAdapterPosition
+                when (val row = adapter.rows[pos]) {
+                    is StockRow.Item -> {
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            deleteItem(row.item)
+                        }
+                        Snackbar.make(rv, "Item deleted", Snackbar.LENGTH_LONG)
+                            .setAction("Undo") {
+                                lifecycleScope.launch(Dispatchers.IO) {
+                                    addItem(row.item)
+                                }
+                            }
+                            .show()
                     }
-                    .show()
+                    is StockRow.Header -> {
+                        adapter.notifyItemChanged(pos)
+                    }
+                }
             }
         }
-        ItemTouchHelper(swipeHandler).attachToRecyclerView(recyclerView)
+        ItemTouchHelper(swipeHandler).attachToRecyclerView(rv)
     }
 
     private fun updateItemQuantity(item: InventoryItem, newQty: Int) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // Query Firestore for the document matching the item.
                 val query = firestore.collection("inventoryItems")
                     .whereEqualTo("name", item.name)
                     .whereEqualTo("variant", item.variant)
                     .whereEqualTo("expirationDate", item.expirationDate)
                     .whereEqualTo("storageType", item.storageType)
-                val snapshot = query.get().await()
-                for (doc in snapshot.documents) {
+                    .whereEqualTo("stockSubCategory", item.stockSubCategory)
+                val snap = query.get().await()
+                for (doc in snap.documents) {
                     doc.reference.update("quantity", newQty).await()
                 }
             } catch (e: Exception) {
@@ -104,38 +167,70 @@ class GeneralStockFragment : Fragment() {
         }
     }
 
-    private suspend fun deleteItem(item: InventoryItem) {
-        try {
-            val query = firestore.collection("inventoryItems")
-                .whereEqualTo("name", item.name)
-                .whereEqualTo("variant", item.variant)
-                .whereEqualTo("expirationDate", item.expirationDate)
-                .whereEqualTo("storageType", item.storageType)
-            val snapshot = query.get().await()
-            for (doc in snapshot.documents) {
-                doc.reference.delete().await()
-            }
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(requireContext(), "Error deleting item", Toast.LENGTH_SHORT).show()
+    private fun updateItemRunningLow(item: InventoryItem, isLow: Boolean) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val query = firestore.collection("inventoryItems")
+                    .whereEqualTo("name", item.name)
+                    .whereEqualTo("variant", item.variant)
+                    .whereEqualTo("expirationDate", item.expirationDate)
+                    .whereEqualTo("storageType", item.storageType)
+                    .whereEqualTo("stockSubCategory", item.stockSubCategory)
+                val snap = query.get().await()
+                for (doc in snap.documents) {
+                    doc.reference.update("isRunningLow", isLow).await()
+                }
+
+                val db = InventoryDatabase.getDatabase(requireContext())
+                db.inventoryDao().updateRunningLow(item.id, isLow)
+
+                // Fetch updated version of the item from DB and notify badge again
+                val updatedItems = db.inventoryDao().getAllItemsSync()
+                val redCount = updatedItems.count {
+                    it.storageType.equals("Stock", true) && (
+                            (it.stockAlertType.equals("Running Low", true) && it.isRunningLow) ||
+                                    (it.stockAlertType.equals("Ideal", true) && it.idealThreshold != null && it.quantity < it.idealThreshold)
+                            )
+                }
+
+                withContext(Dispatchers.Main) {
+                    badgeListener?.onStockBadgeCountChanged(redCount)
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(requireContext(), "Error updating status", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 
-    private suspend fun addItem(item: InventoryItem) {
-        try {
-            val itemMap = hashMapOf(
-                "name" to item.name,
-                "variant" to item.variant,
-                "expirationDate" to item.expirationDate,
-                "quantity" to item.quantity,
-                "storageType" to item.storageType
-            )
-            firestore.collection("inventoryItems").add(itemMap).await()
-        } catch (e: Exception) {
-            withContext(Dispatchers.Main) {
-                Toast.makeText(requireContext(), "Error adding item back", Toast.LENGTH_SHORT).show()
-            }
+
+    private suspend fun deleteItem(item: InventoryItem) {
+        val query = firestore.collection("inventoryItems")
+            .whereEqualTo("name", item.name)
+            .whereEqualTo("variant", item.variant)
+            .whereEqualTo("expirationDate", item.expirationDate)
+            .whereEqualTo("storageType", item.storageType)
+            .whereEqualTo("stockSubCategory", item.stockSubCategory)
+        val snap = query.get().await()
+        for (doc in snap.documents) {
+            doc.reference.delete().await()
         }
+    }
+
+    private suspend fun addItem(item: InventoryItem) {
+        val m = hashMapOf(
+            "name" to item.name,
+            "variant" to item.variant,
+            "expirationDate" to item.expirationDate,
+            "quantity" to item.quantity,
+            "storageType" to item.storageType,
+            "stockSubCategory" to item.stockSubCategory,
+            "stockAlertType" to item.stockAlertType,
+            "idealThreshold" to item.idealThreshold,
+            "isRunningLow" to item.isRunningLow
+        )
+        firestore.collection("inventoryItems").add(m).await()
     }
 }

@@ -31,10 +31,11 @@
         </activity>
         <activity
             android:name=".EditItemActivity"
+            android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"
             android:exported="true" />
         <activity
             android:name=".AddItemActivity"
-            android:theme="@style/Theme.CathedralCafeInventoryLog.LightActionBar"
+            android:theme="@style/Theme.MaterialComponents.Light.NoActionBar"
             android:exported="true"
             android:parentActivityName=".MainActivity">
             <!-- For compatibility with API < 16 -->

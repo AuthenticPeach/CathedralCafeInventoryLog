@@ -8,70 +8,126 @@
         android:padding="16dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
+
+        <!-- Templates spinner -->
         <Spinner
             android:id="@+id/spinnerTemplates"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"/>
 
+        <!-- Item name & variant -->
         <EditText
             android:id="@+id/editTextName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:autofillHints="name"
             android:hint="@string/item_name"
+            android:autofillHints="name"
             android:layout_marginTop="16dp"
             android:inputType="textCapWords" />
 
-        <!-- New field for variant -->
         <EditText
             android:id="@+id/editTextVariant"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:autofillHints="username"
             android:hint="@string/variant_name"
+            android:autofillHints="Variant"
             android:layout_marginTop="8dp"
             android:inputType="text" />
 
+        <!-- Storage type selector -->
         <Spinner
             android:id="@+id/spinnerStorageType"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content" />
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"/>
 
-        <!-- Container for DatePicker (hidden for Stock items) -->
+        <!-- stub for DatePicker -->
+        <ViewStub
+            android:id="@+id/vsDatePicker"
+            android:inflatedId="@+id/datePickerContainer"
+            android:layout="@layout/include_date_picker"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"/>
+
+        <!-- Stock-only options -->
         <LinearLayout
-            android:id="@+id/datePickerContainer"
+            android:id="@+id/stockOptionsContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
+            android:visibility="gone"
+            android:padding="8dp"
             android:layout_marginTop="16dp">
 
-            <DatePicker
-                android:id="@+id/datePicker"
+            <!-- Sub‐category -->
+            <Spinner
+                android:id="@+id/spinnerStockSubCategory"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
+
+            <!-- Alert‐type label + two-state switch -->
+            <TextView
+                android:id="@+id/tvAlertLabel"
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content" />
+                android:layout_height="wrap_content"
+                android:text="@string/stock_alert_type"
+                android:textStyle="bold"
+                android:layout_marginTop="16dp"/>
+
+            <Switch
+                android:id="@+id/switchAlertType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:textOff="@string/ideal_stock"
+                android:textOn="@string/running_low"
+                android:layout_marginTop="8dp"
+                android:thumbTextPadding="8dp"/>
+
+            <!-- Ideal‐stock NumberPicker, centered -->
+            <NumberPicker
+                android:id="@+id/numberPickerIdealThreshold"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"/>
+
+            <!-- Running‐low toggle -->
+            <ToggleButton
+                android:id="@+id/toggleRunningLow"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textOff="@string/X"
+                android:textOn="@string/CheckMark"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:visibility="gone"/>
         </LinearLayout>
 
-        <!-- Button to add item -->
+        <!-- Add / save / manage buttons -->
         <Button
             android:id="@+id/btnAdd"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/add_item"
             android:layout_marginTop="24dp"/>
-        <!-- Button to add item -->
+
         <Button
             android:id="@+id/btnSaveTemplate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/save_template"
-            android:layout_marginTop="24dp"/>
+            android:layout_marginTop="16dp"/>
+
         <Button
             android:id="@+id/btnManageTemplates"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Manage Templates" />
+            android:text="@string/manage_templates"
+            android:layout_marginTop="16dp"/>
 
     </LinearLayout>
-
 </ScrollView>
