@@ -50,16 +50,30 @@ suspend fun exportStockToPdf(context: Context, firestore: FirebaseFirestore): Fi
     var y = 100f
     var currentPage: PdfDocument.Page? = null
     var canvas: Canvas? = null
+    val iconBitmap = BitmapFactory.decodeResource(context.resources, R.drawable.cathedralcafeicon)
+    val iconSize = 40
+    val scaledIcon = Bitmap.createScaledBitmap(iconBitmap, iconSize, iconSize, true)
+
+    var isFirstPage = true
 
     fun newPage(): Canvas {
         val pageInfo = PdfDocument.PageInfo.Builder(pageWidth, pageHeight, pageNum++).create()
         currentPage = pdf.startPage(pageInfo)
         val canvas = currentPage!!.canvas
-        canvas.drawText("Cathedral Café – Stock Checklist", margin, 50f, headerPaint)
-        canvas.drawText("Exported: ${sdf.format(Date())}", margin, 70f, paint)
+
+        if (isFirstPage) {
+            canvas.drawBitmap(scaledIcon, margin, 20f, null)
+        }
+
+        val textOffset = if (isFirstPage) margin + iconSize + 10f else margin
+        canvas.drawText("Cathedral Café – Stock Checklist", textOffset, 40f, headerPaint)
+        canvas.drawText("Exported: ${sdf.format(Date())}", textOffset, 60f, paint)
+
+        isFirstPage = false
         y = 100f
         return canvas
     }
+
 
     canvas = newPage()
 
@@ -100,7 +114,10 @@ suspend fun exportStockToPdf(context: Context, firestore: FirebaseFirestore): Fi
 
     pdf.finishPage(currentPage!!)
 
-    val file = File(context.getExternalFilesDir(null), "Stock-Checklist.pdf")
+    val dateStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+    val fileName = "Stock-Checklist_$dateStr.pdf"
+    val file = File(context.getExternalFilesDir(null), fileName)
+
     try {
         pdf.writeTo(FileOutputStream(file))
     } catch (e: IOException) {
