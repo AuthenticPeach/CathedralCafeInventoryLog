@@ -40,12 +40,16 @@ class RecipesFragment : Fragment() {
         RecipeRow.RecipeItem(Recipe("Lemonade Teas", listOf("12 oz: 4 oz tea, 3 oz lemonade, 2 syrup", "16 oz: 5 oz tea, 4 oz lemonade, 2.5 syrup", "20 oz: 6 oz tea, 5 oz lemonade, 3 syrup"))),
         RecipeRow.RecipeItem(Recipe("Matcha my Heart", listOf("Matcha, oatmilk, strawberry foam", "12 oz: 1 matcha, 1 strawberry, 2 oz cream", "16 oz: 2 matcha, 1 strawberry, 2 oz cream", "20 oz: 3 matcha, 1½ strawberry, 3 oz cream"))),
         RecipeRow.RecipeItem(Recipe("Rose Green Tea", listOf("Green tea", "Rose syrup", "Edible glitter"))),
-        RecipeRow.RecipeItem(Recipe("Lovebug Lemonade", listOf("Strawberry-cranberry + lemonade", "12 oz: Juice to ‘B’, lemonade to ‘C’, 1 scoop berries", "16 oz: Juice to ‘C’, lemonade to ‘D’", "20 oz: Juice to ‘D’, lemonade to ‘E’"))),
+        RecipeRow.RecipeItem(Recipe("Lovebug Lemonade / Strawberry Splash", listOf("Strawberry-cranberry + lemonade", "12 oz: Juice to ‘B’, lemonade to ‘C’, 1 scoop berries", "16 oz: Juice to ‘C’, lemonade to ‘D’", "20 oz: Juice to ‘D’, lemonade to ‘E’"))),
 
         // Blended Drinks & Smoothies
         RecipeRow.SectionHeader("Blended Drinks & Smoothies"),
         RecipeRow.RecipeItem(Recipe("Blended Drinks", listOf("Blend all + full ice", "12 oz: 2 shots + 1 pump + splash", "16 oz: 2 shots + 1½ pumps + splash", "20 oz: 3 shots + 2 pumps + splash"))),
-        RecipeRow.RecipeItem(Recipe("Smoothies", listOf("16 oz only", "8 oz smoothie mix", "Extra full cup ice"))),
+        RecipeRow.RecipeItem(Recipe("Smoothies (In General)", listOf("16 oz only", "8 oz smoothie mix", "Extra full cup ice"))),
+        RecipeRow.RecipeItem(Recipe("Tropical Sunrise Smoothie", listOf("1/3 Mango", "1/3 Orange", "1/3 Pina Colada", "Extra full cup ice"))),
+        RecipeRow.RecipeItem(Recipe("Berry Island Smoothie", listOf("1/3 Mixed Berry", "1/3 Strawberry", "1/3 Pina Colada", "Extra full cup ice"))),
+        RecipeRow.RecipeItem(Recipe("Peach Paradise Smoothie", listOf("1/3 Peach", "1/3 Lemonade", "1/3 Cherry", "Extra full cup ice"))),
+        RecipeRow.RecipeItem(Recipe("Mango Tango Smoothie", listOf("1/3 Mango", "1/3 Orange", "1/3 Strawberry Banana", "Extra full cup ice"))),
 
         // Coffee & Cold Brew
         RecipeRow.SectionHeader("Coffee & Cold Brew"),
@@ -60,6 +64,7 @@ class RecipesFragment : Fragment() {
         RecipeRow.RecipeItem(Recipe("Raspberry Mocha", listOf("Raspberry syrup + chocolate sauce"))),
         RecipeRow.RecipeItem(Recipe("Peppermint Mocha", listOf("Peppermint syrup + chocolate sauce"))),
         RecipeRow.RecipeItem(Recipe("Chocolate Rose Latte", listOf("12 oz: 1 chocolate + 1½ rose", "16 oz: 1 chocolate + 2 rose", "20 oz: 1 chocolate + 2½ rose"))),
+        RecipeRow.RecipeItem(Recipe("Honey Pistachio Latte", listOf("12 oz: 1 Honey + 2 Pistachio", "16 oz: 1½  Honey + 2 Pistachio", "20 oz: 2 Honey + 2 Pistachio"))),
         RecipeRow.RecipeItem(Recipe("Hot Chocolate w/ Marshmallows", listOf("Whipped cream", "Marshmallows", "Chocolate powder", "Crushed peppermint", "No lid")))
     )
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {

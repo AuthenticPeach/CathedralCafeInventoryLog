@@ -129,9 +129,8 @@ class AddItemActivity : AppCompatActivity() {
 
         // --- Stock Sub-category Spinner ---
         val subCats = listOf(
-            "Cups and Lids", "Paper Goods", "Teas and lemonade", "Smoothies",
-            "Coffee Beans", "Cleaning Supplies", "Sauces and Syrups",
-            "Milks", "Powders & Condiments"
+            "Cups and Lids","Paper Goods","Teas and lemonade","Smoothies", "Food & Snacks", "Cold Drinks",
+            "Coffee Beans","Cleaning Supplies","Sauces and Syrups","Milks","Powders & Condiments"
         )
         spinnerSubCat.adapter = ArrayAdapter(
             this, android.R.layout.simple_spinner_item, subCats
