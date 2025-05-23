@@ -32,7 +32,7 @@ suspend fun exportStockToPdf(context: Context, firestore: FirebaseFirestore): Fi
             StockChecklistItem(subCat, fullName, ideal, needsRestock, quantity)
         }
 
-    val grouped = items.groupBy { it.category }
+    val grouped = items.groupBy { it.category }.toSortedMap() // 🟡 Alphabetically sort categories
 
     val pdf = PdfDocument()
     val pageWidth = 595
@@ -42,6 +42,10 @@ suspend fun exportStockToPdf(context: Context, firestore: FirebaseFirestore): Fi
 
     val paint = Paint().apply { color = Color.BLACK; textSize = 14f }
     val boldPaint = Paint(paint).apply { isFakeBoldText = true }
+    val yellowBoldPaint = Paint(paint).apply {
+        color = Color.parseColor("#FBC02D") // ☀ Yellow
+        isFakeBoldText = true
+    }
     val headerPaint = Paint(paint).apply { textSize = 18f; isFakeBoldText = true }
 
     val sdf = SimpleDateFormat("MM/dd/yyyy h:mm a", Locale.getDefault())
@@ -74,7 +78,6 @@ suspend fun exportStockToPdf(context: Context, firestore: FirebaseFirestore): Fi
         return canvas
     }
 
-
     canvas = newPage()
 
     for ((category, entries) in grouped) {
@@ -91,19 +94,27 @@ suspend fun exportStockToPdf(context: Context, firestore: FirebaseFirestore): Fi
         canvas!!.drawText(if (category.equals("Milks", ignoreCase = true)) "Qty" else "Need ✓ / ✗", margin + 460f, y, boldPaint)
         y += lineHeight
 
-        for (entry in entries) {
+        val sortedEntries = entries.sortedBy { it.name } // 🟡 Sort alphabetically within category
+        for (entry in sortedEntries) {
             if (y > pageHeight - 80) {
                 pdf.finishPage(currentPage!!)
                 canvas = newPage()
             }
 
+            // 🔶 Highlight full row if checkmark needed
+            if (!category.equals("Milks", ignoreCase = true) && entry.needsRestock) {
+                val bgPaint = Paint().apply { color = Color.parseColor("#FFF59D") } // soft yellow
+                canvas!!.drawRect(margin, y - 14f, pageWidth - margin, y + 10f, bgPaint)
+            }
+
             canvas!!.drawText(entry.name, margin, y, paint)
             canvas!!.drawText(entry.ideal, margin + 280f, y, paint)
 
-            if (entry.category.equals("Milks", ignoreCase = true)) {
+            if (category.equals("Milks", ignoreCase = true)) {
                 canvas!!.drawText(entry.quantity.toString(), margin + 480f, y, paint)
             } else {
-                canvas!!.drawText(if (entry.needsRestock) "✓" else "✗", margin + 480f, y, paint)
+                val mark = if (entry.needsRestock) "✓" else "✗"
+                canvas!!.drawText(mark, margin + 480f, y, paint)
             }
 
             y += lineHeight

@@ -94,14 +94,15 @@ class GeneralStockFragment : Fragment() {
                     }
 
                     // Convert to rows: group by subcategory, wrap in Header/Item
-                    val rows = mutableListOf<StockRow>()
-                    subCats.forEach { sub ->
-                        val subItems = items.filter { it.stockSubCategory == sub }
-                        if (subItems.isNotEmpty()) {
-                            rows.add(StockRow.Header(sub))
-                            rows.addAll(subItems.map { StockRow.Item(it) })
+                    val rows = items
+                        .groupBy { it.stockSubCategory }
+                        .toSortedMap() // Sort subcategories alphabetically
+                        .flatMap { (subCat, subItems) ->
+                            listOf(StockRow.Header(subCat)) +
+                                    subItems.sortedWith(compareBy({ it.name }, { it.variant })) // Sort items alphabetically
+                                        .map { StockRow.Item(it) }
                         }
-                    }
+
 
                     adapter.submitList(rows)
 
